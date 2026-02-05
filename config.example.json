@@ -1,0 +1,50 @@
+{
+  "$schema": "SmartASR 配置文件示例",
+  "$doc": "复制为 config.json 并修改",
+  
+  "models_dir": "D:/models/SmartASR",
+  "cache_dir": "D:/cache/SmartASR",
+  "max_file_size_mb": 500,
+  "default_engine": "ali_funasr",
+  "api_timeout": 300,
+  
+  "model_source": {
+    "_comment": "模型源配置 - 企业部署核心",
+    
+    "source_type": "auto",
+    "_source_type_options": ["local", "network", "official", "auto"],
+    "_source_type_desc": {
+      "local": "仅使用本地预下载的模型",
+      "network": "从内网服务器下载",
+      "official": "从官方源 (HuggingFace/ModelScope) 下载",
+      "auto": "按顺序尝试: local -> network -> official"
+    },
+    
+    "local_dir": "D:/models/funasr",
+    "_local_dir_desc": "本地预下载模型目录，目录结构: local_dir/SenseVoiceSmall/, local_dir/paraformer-zh/",
+    
+    "network_server": "http://192.168.1.100:8000/models",
+    "_network_server_desc": "内网模型服务器 URL，期望 GET /models/SenseVoiceSmall.zip 返回模型压缩包",
+    
+    "official_hub": "hf",
+    "_official_hub_options": ["hf", "ms"],
+    "_official_hub_desc": {
+      "hf": "HuggingFace (海外推荐)",
+      "ms": "ModelScope (国内推荐)"
+    }
+  },
+  
+  "engine_configs": {
+    "ali_funasr": {
+      "default_model": "paraformer-zh",
+      "device": "cuda"
+    },
+    "ali_qwen": {
+      "_comment": "需要设置 DASHSCOPE_API_KEY 环境变量"
+    },
+    "api_keys": {
+      "_comment": "也可以放在这里，但推荐使用环境变量",
+      "DASHSCOPE_API_KEY": "sk-xxxxxxxx"
+    }
+  }
+}

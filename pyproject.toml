@@ -1,0 +1,124 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "smartasr"
+version = "0.1.0"
+description = "轻量级语音转文字 API 服务"
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.10"
+authors = [
+    {name = "SmartASR Team"}
+]
+keywords = ["speech-to-text", "stt", "asr", "transcription", "funasr"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Multimedia :: Sound/Audio :: Speech",
+]
+
+# 核心依赖
+dependencies = [
+    "typer>=0.9.0",
+    "rich>=13.0.0",
+]
+
+[project.optional-dependencies]
+# API 服务
+api = [
+    "fastapi>=0.115.0",
+    "uvicorn>=0.23.0",
+    "httpx>=0.24.0",
+    "python-multipart>=0.0.18",
+    "starlette>=0.40.0",
+]
+
+# FunASR 本地引擎
+funasr = [
+    "funasr>=1.0.0",
+    "torch>=2.0.0",
+    "torchaudio>=2.0.0",
+    "pydub>=0.25.0",
+]
+
+# 阿里云 Qwen-ASR
+qwen = [
+    "dashscope>=1.10.0",
+]
+
+# 开发工具
+dev = [
+    "pytest>=7.0.0",
+    "pytest-asyncio>=0.21.0",
+    "pytest-cov>=4.0.0",
+    "black>=23.0.0",
+    "isort>=5.12.0",
+    "mypy>=1.5.0",
+]
+
+# 完整安装 (包含所有可选依赖)
+all = [
+    "smartasr[api,funasr,qwen,dev]",
+]
+
+[project.scripts]
+# CLI 入口点
+smartasr = "backend.app.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/yourusername/SmartASR"
+Documentation = "https://github.com/yourusername/SmartASR#readme"
+Repository = "https://github.com/yourusername/SmartASR"
+Issues = "https://github.com/yourusername/SmartASR/issues"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["backend*"]
+exclude = ["pyvideotrans", "pyvideotrans.*", "tests", "tests.*"]
+
+[tool.setuptools.package-data]
+"*" = ["README.md", "*.json"]
+
+# ============ 工具配置 ============
+
+[tool.black]
+line-length = 100
+target-version = ["py310", "py311", "py312"]
+include = '\.pyi?$'
+exclude = '''
+/(
+    \.git
+    | \.venv
+    | pyvideotrans
+    | __pycache__
+)/
+'''
+
+[tool.isort]
+profile = "black"
+line_length = 100
+skip = ["pyvideotrans", ".venv"]
+
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = true
+warn_unused_ignores = true
+ignore_missing_imports = true
+exclude = ["pyvideotrans", "tests"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_functions = ["test_*"]
+addopts = "-v --tb=short"
+filterwarnings = [
+    "ignore::DeprecationWarning",
+]
