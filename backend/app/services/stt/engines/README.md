@@ -120,7 +120,7 @@ def transcribe(self, request: STTRequest) -> STTResponse:
     max_speakers = request.options.get("max_speakers", -1)
 ```
 
-> 📖 详细文档见: [docs/guides/engines.md](../../../../docs/guides/engines.md)
+> 📖 详细文档见: [documents/guides/engines.md](../../../../documents/guides/engines.md)
 
 ## 隐含契约
 

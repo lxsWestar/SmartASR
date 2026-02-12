@@ -1,4 +1,4 @@
-# docs/ - 文档目录
+# documents/ - 文档目录
 
 > 存放 SmartASR 项目的所有用户文档
 
@@ -7,7 +7,7 @@
 
 ## 目录结构
 ```
-docs/
+documents/
 ├── README.md              # 本文件 (文档索引)
 │
 ├── api/                   # API 文档

@@ -254,8 +254,8 @@
 
 ### 8.3 文档
 - [ ] 更新 `README.md`
-- [ ] `docs/api/stt.md` - API 文档
-- [ ] `docs/guides/add_engine.md` - 添加引擎指南
+- [ ] `documents/api/stt.md` - API 文档
+- [ ] `documents/guides/add_engine.md` - 添加引擎指南
 
 ### 8.4 验证
 - [x] `pytest tests/unit/` 全部通过

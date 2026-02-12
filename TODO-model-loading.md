@@ -109,7 +109,7 @@
 
 ### Phase 3: 初次配置向导
 
-- [ ] **3.1** 创建 `docs/guides/setup.md` 详细配置指南
+- [ ] **3.1** 创建 `documents/guides/setup.md` 详细配置指南
   ```markdown
   ## 初次配置
   
@@ -159,7 +159,7 @@
 | `backend/app/services/stt/config.py` | 完善三段式加载逻辑 |
 | `config.example.json` | 更新示例 |
 | `README.md` | 添加配置说明 |
-| `docs/guides/setup.md` | 新建详细指南 |
+| `documents/guides/setup.md` | 新建详细指南 |
 | `.gitignore` | 添加 `models/*` |
 | `models/.gitkeep` | 新建占位文件 |
 

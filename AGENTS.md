@@ -30,7 +30,7 @@
   - 使用 print() 替代 logging
 
 必须遵守:
-  - 所有公共函数必须有 docstring
+  - 所有公共函数必须有 documentstring
   - 异常必须使用 backend/app/services/stt/exceptions.py 中定义的类
   - 路径处理必须使用 pathlib.Path
   - Windows 路径传递给 FFmpeg 时用 .as_posix()
@@ -60,7 +60,7 @@
   必须: 使用 pytest fixtures
 
 新建文档:
-  位置: docs/{api|design|guides}/
+  位置: documents/{api|design|guides}/
   格式: Markdown
 ```
 

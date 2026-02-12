@@ -169,7 +169,7 @@ api/
 ## 交互式文档
 
 启动服务后访问:
-- **Swagger UI**: http://localhost:8000/docs
+- **Swagger UI**: http://localhost:8000/documents
 - **ReDoc**: http://localhost:8000/redoc
 
 ## 部署建议

@@ -67,7 +67,7 @@ def serve_command(
     
     [bold]API 文档:[/bold]
     
-        启动后访问 http://localhost:8000/docs 查看 API 文档
+        启动后访问 http://localhost:8000/documents 查看 API 文档
     """
     try:
         import uvicorn
@@ -78,7 +78,7 @@ def serve_command(
     
     print_info(f"启动 SmartASR API 服务...")
     print_info(f"地址: http://{host}:{port}")
-    print_info(f"文档: http://{host}:{port}/docs")
+    print_info(f"文档: http://{host}:{port}/documents")
     console.print()
     
     uvicorn.run(

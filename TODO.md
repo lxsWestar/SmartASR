@@ -55,7 +55,7 @@ SmartASR/
 │               ├── engines/          # 引擎插件目录
 │               └── ...               # 核心模块
 │
-├── docs/                              # 文档
+├── documents/                              # 文档
 ├── tests/                             # 测试
 └── pyvideotrans/                      # 参考项目 (只读)
 ```

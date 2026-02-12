@@ -23,7 +23,7 @@ def create_app() -> FastAPI:
         title="SmartASR API",
         description="轻量级语音转文字 API 服务",
         version="0.1.0",
-        docs_url="/docs",
+        documents_url="/documents",
         redoc_url="/redoc",
         openapi_url="/openapi.json",
     )
@@ -59,7 +59,7 @@ def create_app() -> FastAPI:
         return {
             "name": "SmartASR API",
             "version": "0.1.0",
-            "docs": "/docs",
+            "documents": "/documents",
             "health": "/api/stt/health",
             "health_simple": "/health",
         }
@@ -75,6 +75,6 @@ if __name__ == "__main__":
     import uvicorn
     print("\n🚀 SmartASR API 服务启动中...")
     print("📍 访问地址: http://localhost:8000")
-    print("📚 API 文档: http://localhost:8000/docs")
+    print("📚 API 文档: http://localhost:8000/documents")
     print("❌ 按 Ctrl+C 停止服务\n")
     uvicorn.run("backend.app.api.main:app", host="0.0.0.0", port=8000, reload=True)

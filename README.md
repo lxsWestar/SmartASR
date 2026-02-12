@@ -217,7 +217,7 @@ SmartASR/
 ├── models/                      # 本地模型目录 (gitignore)
 ├── scripts/                     # 工具脚本
 ├── tests/                       # 测试用例
-└── docs/                        # 额外文档
+└── documents/                        # 额外文档
 ```
 
 ---
@@ -249,7 +249,7 @@ pytest tests/ --cov=backend           # 带覆盖率
 2. 实现抽象方法
 3. 放入 `engines/` 目录，自动注册
 
-详见 [引擎开发指南](docs/guides/engines.md)
+详见 [引擎开发指南](documents/guides/engines.md)
 
 ---
 

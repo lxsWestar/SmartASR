@@ -40,7 +40,7 @@ if __name__ == "__main__":
     
     print("\n🚀 SmartASR API 服务启动中...")
     print(f"📍 访问地址: http://localhost:{port}")
-    print(f"📚 API 文档: http://localhost:{port}/docs")
+    print(f"📚 API 文档: http://localhost:{port}/documents")
     print("❌ 按 Ctrl+C 停止服务\n")
     
     uvicorn.run(
