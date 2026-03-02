@@ -138,6 +138,19 @@ desktop.ini
 pyvideotrans/
 
 # =========================
+# BMAD-METHOD 会话状态 (运行时数据，不提交)
+# =========================
+# _bmad/ 框架本身应追踪；仅排除运行时会话状态
+_bmad/_memory/
+
+# =========================
+# AI 工具临时文件
+# =========================
+tmpclaude*
+tmpgpt*
+tmp_agent*
+
+# =========================
 # 密钥 / 配置 (敏感信息)
 # =========================
 config.json
@@ -146,3 +159,6 @@ config.json
 .env.local
 .env.*.local
 secrets/
+
+# Claude Code temp files
+tmpclaude-*
