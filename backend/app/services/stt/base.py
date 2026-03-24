@@ -42,8 +42,9 @@ class BaseSTTEngine(ABC):
     
     # 子类必须定义的类属性 (不是实例属性)
     name: str = ""                # 引擎标识，如 "ali_funasr"
-    display_name: str = ""        # 显示名称，如 "阿里 FunASR (本地)"
+    display_name: str = ""        # 显示名称（纯名称，不含厂商/部署方式），如 "FunASR"
     engine_type: str = "local"    # "local" 或 "cloud"
+    vendor: str = ""              # 厂商，如 "Alibaba"
     
     # 运行时状态 (实例属性)
     device: str = field(default="cpu", init=False)

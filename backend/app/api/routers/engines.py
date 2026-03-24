@@ -31,7 +31,8 @@ class EngineBasicInfo(BaseModel):
     """引擎基本信息"""
     name: str
     display_name: str
-    type: str
+    type: str        # "local" 或 "cloud"
+    vendor: str      # 厂商，如 "Alibaba"
     models: List[str]
 
 
@@ -116,6 +117,7 @@ async def get_engines():
                 name=metadata.name,
                 display_name=metadata.display_name,
                 type=metadata.type,
+                vendor=getattr(metadata, "vendor", ""),
                 models=[m.name for m in metadata.models],
             ))
         except Exception:

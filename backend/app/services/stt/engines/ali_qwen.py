@@ -84,8 +84,9 @@ class QwenASREngine(BaseSTTEngine):
     
     # 引擎标识
     name: str = field(default="ali_qwen", init=False)
-    display_name: str = field(default="通义千问 ASR (云端)", init=False)
+    display_name: str = field(default="Qwen-ASR", init=False)
     engine_type: str = field(default="cloud", init=False)
+    vendor: str = field(default="Alibaba", init=False)
     
     # 配置
     _api_key: Optional[str] = field(default=None, init=False)
@@ -112,7 +113,8 @@ class QwenASREngine(BaseSTTEngine):
         
         return EngineMetadata(
             name="ali_qwen",
-            display_name="通义千问 ASR (云端)",
+            display_name="Qwen-ASR",
+            vendor="Alibaba",
             type="cloud",
             description="基于阿里云 DashScope API 的云端语音识别",
             version="1.0.0",

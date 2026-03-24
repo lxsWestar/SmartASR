@@ -114,8 +114,9 @@ class FunASREngine(BaseSTTEngine):
     
     # 引擎标识
     name: str = field(default="ali_funasr", init=False)
-    display_name: str = field(default="阿里 FunASR (本地)", init=False)
+    display_name: str = field(default="FunASR", init=False)
     engine_type: str = field(default="local", init=False)
+    vendor: str = field(default="Alibaba", init=False)
     
     # 内部状态
     _vad_model: Any = field(default=None, init=False, repr=False)
@@ -138,7 +139,8 @@ class FunASREngine(BaseSTTEngine):
         
         return EngineMetadata(
             name="ali_funasr",
-            display_name="阿里 FunASR (本地)",
+            display_name="FunASR",
+            vendor="Alibaba",
             type="local",
             description="基于 FunASR 的本地语音识别，支持中英日韩粤语",
             version="1.0.0",
