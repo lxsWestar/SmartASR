@@ -49,6 +49,7 @@ class TemplateEngine(BaseSTTEngine):
     name: str = field(default="template", init=False)
     display_name: str = field(default="模板引擎", init=False)
     engine_type: str = field(default="local", init=False)  # "local" 或 "cloud"
+    vendor: str = field(default="", init=False)             # 厂商，如 "Alibaba"、"OpenAI"
     
     @classmethod
     def get_metadata(cls) -> EngineMetadata:
@@ -69,6 +70,7 @@ class TemplateEngine(BaseSTTEngine):
         return EngineMetadata(
             name="template",
             display_name="模板引擎",
+            vendor="",        # 填写厂商，如 "Alibaba"、"OpenAI"
             type="local",  # "local" (本地) 或 "cloud" (云端)
             description="这是一个引擎开发模板",
             version="1.0.0",
