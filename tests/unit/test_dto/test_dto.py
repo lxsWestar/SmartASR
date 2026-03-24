@@ -513,7 +513,7 @@ class TestEngineMetadata:
         d = meta.to_dict()
         
         expected_keys = {
-            "name", "display_name", "type", "description", "version",
+            "name", "display_name", "type", "vendor", "description", "version",
             "supported_languages", "models", "requires_api_key", "parameters"
         }
         assert set(d.keys()) == expected_keys

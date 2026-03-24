@@ -5,13 +5,27 @@ Qwen3-ASR 本地引擎
 基于 Qwen3-ASR 开源模型（Alibaba Qwen 团队）的本地推理引擎。
 
 支持模型:
-  - Qwen/Qwen3-ASR-0.6B  轻量级，速度优先
-  - Qwen/Qwen3-ASR-1.7B  平衡精度与速度
+  - Qwen3-ASR-0.6B  轻量级，速度优先
+  - Qwen3-ASR-1.7B  平衡精度与速度
 
 依赖:
-  pip install transformers torch torchaudio
+  pip install qwen-asr torch
 
-模型来源: https://github.com/QwenLM/Qwen-ASR
+模型下载（推荐 git clone，稳定快速）:
+  # HuggingFace
+  git clone https://huggingface.co/Qwen/Qwen3-ASR-0.6B ./models/Qwen3-ASR-0.6B
+  git clone https://huggingface.co/Qwen/Qwen3-ASR-1.7B ./models/Qwen3-ASR-1.7B
+
+  # 或 ModelScope（国内推荐）
+  git clone https://modelscope.cn/Qwen/Qwen3-ASR-0.6B.git ./models/Qwen3-ASR-0.6B
+
+模型目录结构 (STT_MODELS_DIR, 默认 ./models):
+  models/
+    Qwen3-ASR-0.6B/   ← git clone 目标
+    Qwen3-ASR-1.7B/
+
+模型来源: https://github.com/QwenLM/Qwen3-ASR
+官方包:   pip install qwen-asr
 """
 
 import logging
@@ -44,7 +58,7 @@ QWEN_LOCAL_MODELS: dict[str, dict] = {
         "size": "~1.2GB",
         "languages": ["zh", "en", "ja", "ko", "auto"],
         "default": True,
-        "features": ["timestamps", "multi_language"],
+        "features": ["multi_language"],
     },
     "Qwen3-ASR-1.7B": {
         "hf_id": "Qwen/Qwen3-ASR-1.7B",
@@ -53,14 +67,41 @@ QWEN_LOCAL_MODELS: dict[str, dict] = {
         "size": "~3.4GB",
         "languages": ["zh", "en", "ja", "ko", "auto"],
         "default": False,
-        "features": ["timestamps", "multi_language"],
+        "features": ["multi_language"],
     },
 }
 
 DEFAULT_MODEL = "Qwen3-ASR-0.6B"
 
-# 本地模型缓存目录（可通过环境变量覆盖）
+# 本地模型根目录（可通过环境变量覆盖）
 _MODELS_DIR = Path(os.environ.get("STT_MODELS_DIR", "./models"))
+
+# ISO 639-1 语言代码 → qwen-asr 语言名称映射
+_LANG_CODE_TO_QWEN: dict[str, str] = {
+    "zh": "Chinese",
+    "en": "English",
+    "ja": "Japanese",
+    "ko": "Korean",
+    "yue": "Cantonese",
+    "ar": "Arabic",
+    "de": "German",
+    "fr": "French",
+    "es": "Spanish",
+    "pt": "Portuguese",
+    "ru": "Russian",
+    "th": "Thai",
+    "vi": "Vietnamese",
+    "tr": "Turkish",
+    "hi": "Hindi",
+    "it": "Italian",
+}
+
+
+def _to_qwen_language(lang: Optional[str]) -> Optional[str]:
+    """将 ISO 语言代码转换为 qwen-asr 接受的全称（auto/None → None 表示自动检测）"""
+    if not lang or lang == "auto":
+        return None
+    return _LANG_CODE_TO_QWEN.get(lang, lang)
 
 
 # ── エンジン実装 ────────────────────────────────────────────────────────────
@@ -71,8 +112,8 @@ class QwenLocalEngine(BaseSTTEngine):
     """
     Qwen3-ASR 本地推理引擎
 
-    基于 transformers 库加载 Qwen3-ASR 开源模型，
-    支持 0.6B 和 1.7B 两种规格。
+    使用官方 qwen-asr 包（pip install qwen-asr）加载 Qwen3-ASR-0.6B / 1.7B。
+    模型通过 git clone HuggingFace / ModelScope 仓库下载到本地。
     """
 
     # 引擎标识
@@ -81,34 +122,34 @@ class QwenLocalEngine(BaseSTTEngine):
     engine_type: str = field(default="local", init=False)
     vendor: str = field(default="Alibaba", init=False)
 
-    # 运行时状态
-    _processor: Any = field(default=None, init=False, repr=False)
+    # 运行时状态（懒加载缓存）
     _model: Any = field(default=None, init=False, repr=False)
-    _current_model_name: str = field(default="", init=False)
+    _current_model_key: str = field(default="", init=False)
 
     @classmethod
     def get_metadata(cls) -> EngineMetadata:
         """返回引擎元数据"""
-        models = []
-        for model_key, info in QWEN_LOCAL_MODELS.items():
-            models.append(ModelInfo(
-                name=model_key,
+        models = [
+            ModelInfo(
+                name=key,
                 display_name=info["display_name"],
                 description=info["description"],
                 languages=info["languages"],
                 size=info["size"],
                 default=info["default"],
                 features=info["features"],
-            ))
+            )
+            for key, info in QWEN_LOCAL_MODELS.items()
+        ]
 
         return EngineMetadata(
             name="qwen_local",
             display_name="Qwen3-ASR",
             vendor="Alibaba",
             type="local",
-            description="Qwen3-ASR 开源本地模型，支持 0.6B / 1.7B 两种规格",
+            description="Qwen3-ASR 开源本地模型，支持 0.6B / 1.7B 两种规格，52 种语言",
             version="3.0.0",
-            supported_languages=["zh", "en", "ja", "ko", "auto"],
+            supported_languages=list(_LANG_CODE_TO_QWEN.keys()) + ["auto"],
             requires_api_key=False,
             models=models,
             parameters=[
@@ -121,36 +162,26 @@ class QwenLocalEngine(BaseSTTEngine):
                     description="识别语言（auto 表示自动检测）",
                 ),
                 ParameterSpec(
-                    name="beam_size",
+                    name="max_new_tokens",
                     type="integer",
                     required=False,
-                    default=5,
-                    options=[1, 3, 5, 10],
-                    description="Beam search 宽度，越大越准但越慢",
+                    default=256,
+                    description="最大生成 token 数量，长音频可适当调大",
                 ),
             ],
         )
 
     def check_available(self) -> Tuple[bool, str]:
         """检查引擎依赖是否满足"""
-        missing = []
+        try:
+            import qwen_asr  # noqa: F401
+        except ImportError:
+            return False, "缺少依赖 qwen-asr。请运行: pip install qwen-asr"
+
         try:
             import torch  # noqa: F401
         except ImportError:
-            missing.append("torch")
-
-        try:
-            import transformers  # noqa: F401
-        except ImportError:
-            missing.append("transformers")
-
-        try:
-            import librosa  # noqa: F401
-        except ImportError:
-            missing.append("librosa")
-
-        if missing:
-            return False, f"缺少依赖：{', '.join(missing)}。请运行: pip install {' '.join(missing)}"
+            return False, "缺少依赖 torch。请运行: pip install torch"
 
         return True, "依赖已满足"
 
@@ -158,45 +189,57 @@ class QwenLocalEngine(BaseSTTEngine):
         """返回支持的模型列表"""
         return list(QWEN_LOCAL_MODELS.keys())
 
-    def _get_hf_id(self, model_name: Optional[str]) -> str:
-        """将用户传入的 model 名称映射到 HuggingFace 模型 ID"""
-        name = model_name or DEFAULT_MODEL
-        if name in QWEN_LOCAL_MODELS:
-            return QWEN_LOCAL_MODELS[name]["hf_id"]
-        # 兼容直接传 HF ID 的情况（如 Qwen/Qwen3-ASR-0.6B）
-        for info in QWEN_LOCAL_MODELS.values():
-            if info["hf_id"] == name:
-                return name
-        raise ModelNotFoundError(f"未知模型: {name}", engine_name=self.name, model_name=name)
+    def _resolve_model_path(self, model_key: str) -> str:
+        """
+        解析模型路径。
+        优先使用本地 git clone 目录，否则回退到 HuggingFace Hub ID（需联网）。
+        """
+        if model_key not in QWEN_LOCAL_MODELS:
+            raise ModelNotFoundError(
+                f"未知模型: {model_key}，支持: {list(QWEN_LOCAL_MODELS.keys())}",
+                engine_name=self.name,
+                model_name=model_key,
+            )
+        hf_id = QWEN_LOCAL_MODELS[model_key]["hf_id"]
+        # 尝试 models/Qwen3-ASR-0.6B 目录（git clone 结果）
+        local_dir = _MODELS_DIR / model_key
+        if local_dir.exists():
+            logger.info("使用本地模型目录: %s", local_dir)
+            return str(local_dir)
+        # 也兼容 models/Qwen--Qwen3-ASR-0.6B 格式（部分工具的下载习惯）
+        alt_dir = _MODELS_DIR / hf_id.replace("/", "--")
+        if alt_dir.exists():
+            logger.info("使用本地模型目录: %s", alt_dir)
+            return str(alt_dir)
+        logger.warning("本地模型目录不存在，将尝试从 HuggingFace 下载: %s", hf_id)
+        return hf_id
 
-    def _load_model(self, hf_id: str) -> None:
+    def _load_model(self, model_key: str) -> None:
         """懒加载模型，相同模型不重复加载"""
-        if self._current_model_name == hf_id and self._model is not None:
+        if self._current_model_key == model_key and self._model is not None:
             return
 
         try:
             import torch
-            from transformers import AutoProcessor, AutoModelForCausalLM
-        except ImportError as e:
-            raise EngineNotAvailableError(f"依赖未安装: {e}", engine_name=self.name)
+            from qwen_asr import Qwen3ASRModel
+        except ImportError as exc:
+            raise EngineNotAvailableError(f"依赖未安装: {exc}", engine_name=self.name)
 
-        logger.info("加载 Qwen3-ASR 模型: %s (device=%s)", hf_id, self.device)
+        model_path = self._resolve_model_path(model_key)
+        dtype = torch.bfloat16 if self.is_cuda else torch.float32
+        device_map = self.device
 
-        # 优先从本地缓存目录加载
-        local_path = _MODELS_DIR / hf_id.replace("/", "--")
-        model_path = str(local_path) if local_path.exists() else hf_id
-
+        logger.info("加载 Qwen3-ASR 模型: %s (dtype=%s, device=%s)", model_path, dtype, device_map)
         try:
-            self._processor = AutoProcessor.from_pretrained(model_path, trust_remote_code=True)
-            self._model = AutoModelForCausalLM.from_pretrained(
+            self._model = Qwen3ASRModel.from_pretrained(
                 model_path,
-                torch_dtype=torch.float16 if self.is_cuda else torch.float32,
-                device_map=self.device,
-                trust_remote_code=True,
+                dtype=dtype,
+                device_map=device_map,
+                max_inference_batch_size=4,
+                max_new_tokens=256,
             )
-            self._model.eval()
-            self._current_model_name = hf_id
-            logger.info("Qwen3-ASR 模型加载成功: %s", hf_id)
+            self._current_model_key = model_key
+            logger.info("Qwen3-ASR 模型加载成功: %s", model_key)
         except Exception as exc:
             raise TranscriptionError(f"模型加载失败: {exc}", engine_name=self.name)
 
@@ -206,49 +249,31 @@ class QwenLocalEngine(BaseSTTEngine):
         if not available:
             raise EngineNotAvailableError(reason, engine_name=self.name)
 
-        import torch
-        import librosa
+        model_key = request.model or DEFAULT_MODEL
+        self._load_model(model_key)
 
-        hf_id = self._get_hf_id(request.model)
-        self._load_model(hf_id)
-
-        beam_size: int = int((request.options or {}).get("beam_size", 5))
+        max_new_tokens: int = int((request.options or {}).get("max_new_tokens", 256))
+        qwen_lang = _to_qwen_language(request.language)
 
         try:
-            # 加载音频（统一 16kHz 单声道）
-            audio, _ = librosa.load(str(request.audio_path), sr=16000, mono=True)
-
-            # 预处理
-            inputs = self._processor(
-                audios=[audio],
-                return_tensors="pt",
-                sampling_rate=16000,
+            results = self._model.transcribe(
+                audio=str(request.audio_path),
+                language=qwen_lang,
+                max_new_tokens=max_new_tokens,
             )
-            if self.is_cuda:
-                inputs = {k: v.to("cuda") if hasattr(v, "to") else v for k, v in inputs.items()}
+            result = results[0]
+            text = result.text.strip()
+            detected_lang = result.language or request.language or "auto"
 
-            # 推理
-            with torch.no_grad():
-                generated_ids = self._model.generate(
-                    **inputs,
-                    num_beams=beam_size,
-                    max_new_tokens=512,
-                )
-
-            # 解码
-            text = self._processor.batch_decode(
-                generated_ids,
-                skip_special_tokens=True,
-            )[0].strip()
-
-            duration_ms = int(len(audio) / 16000 * 1000)
+            # qwen-asr 不直接返回 duration；用 soundfile 或 wave 获取
+            duration_ms = self._get_audio_duration_ms(request.audio_path)
 
             return STTResponse(
                 text=text,
                 segments=[STTSegment(start_ms=0, end_ms=duration_ms, text=text)],
-                language=request.language or "auto",
+                language=detected_lang,
                 engine=self.name,
-                model=request.model or DEFAULT_MODEL,
+                model=model_key,
                 duration_ms=duration_ms,
             )
 
@@ -257,3 +282,22 @@ class QwenLocalEngine(BaseSTTEngine):
         except Exception as exc:
             logger.exception("Qwen3-ASR 识别失败: %s", exc)
             raise TranscriptionError(f"识别失败: {exc}", engine_name=self.name)
+
+    @staticmethod
+    def _get_audio_duration_ms(audio_path: Path) -> int:
+        """获取音频时长（毫秒），尽量不引入额外依赖"""
+        try:
+            import wave
+            with wave.open(str(audio_path), "rb") as wf:
+                frames = wf.getnframes()
+                rate = wf.getframerate()
+                return int(frames / rate * 1000)
+        except Exception:
+            pass
+        try:
+            import soundfile as sf
+            info = sf.info(str(audio_path))
+            return int(info.duration * 1000)
+        except Exception:
+            pass
+        return 0

@@ -172,8 +172,8 @@ class EngineMetadata:
     name: str                     # 引擎标识
     display_name: str             # 显示名称（纯名称，不含厂商/部署方式）
     type: str                     # "local" 或 "cloud"
-    vendor: str                   # 厂商，如 "Alibaba"、"OpenAI"
     description: str              # 引擎描述
+    vendor: str = ""              # 厂商，如 "Alibaba"、"OpenAI"（可选，默认空串）
     version: str = "1.0.0"        # 版本号
     supported_languages: List[str] = field(default_factory=list)
     models: List[ModelInfo] = field(default_factory=list)
