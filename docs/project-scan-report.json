@@ -1,0 +1,72 @@
+{
+  "workflow_version": "1.2.0",
+  "timestamps": {
+    "started": "2026-03-02T00:00:00.000Z",
+    "last_updated": "2026-03-02T12:00:00.000Z",
+    "completed": "2026-03-02T12:00:00.000Z"
+  },
+  "mode": "initial_scan",
+  "scan_level": "exhaustive",
+  "project_root": "d:\\src\\SmartASR",
+  "project_knowledge": "d:\\src\\SmartASR\\docs",
+  "project_classification": {
+    "repository_type": "monolith",
+    "parts_count": 2,
+    "project_types": [
+      {
+        "part_id": "backend",
+        "project_type_id": "backend",
+        "display_name": "Backend Core (FastAPI ASR Service)",
+        "root_path": "d:\\src\\SmartASR\\backend"
+      },
+      {
+        "part_id": "frontend",
+        "project_type_id": "web",
+        "display_name": "Frontend (Static Web UI)",
+        "root_path": "d:\\src\\SmartASR\\frontend"
+      }
+    ],
+    "primary_language": "Python 3.10+",
+    "secondary_language": "JavaScript",
+    "architecture_pattern": "Layered (FastAPI service + static frontend)",
+    "key_technologies": ["FastAPI", "Uvicorn", "FunASR", "DashScope", "Typer", "Rich", "pydub", "FFmpeg"]
+  },
+  "completed_steps": [
+    {"step": "step_0_5", "status": "completed", "summary": "加载12种项目类型文档需求CSV"},
+    {"step": "step_0_6", "status": "completed", "summary": "无已有文档，触发initial_scan，scan_level=exhaustive"},
+    {"step": "step_1", "status": "completed", "summary": "检测为单体仓库，2个模块：backend(FastAPI) + frontend(静态Web)，用户已确认"},
+    {"step": "step_2", "status": "completed", "summary": "发现约30个已有文档，用户确认无补充"},
+    {"step": "step_3", "status": "completed", "summary": "全量读取40+源文件，完成技术栈分析 → tech_stack.md"},
+    {"step": "step_4", "status": "completed", "summary": "API契约分析、DTO分析、错误码体系 → api_contracts.md"},
+    {"step": "step_5", "status": "completed", "summary": "含详细注释的源码目录树 → source_tree.md"},
+    {"step": "step_6", "status": "completed", "summary": "开发运营信息（安装/运行/测试/配置/新增引擎） → dev_ops.md"},
+    {"step": "step_7", "status": "completed", "summary": "两模块集成：CLI和API共享STT Service Layer，无需独立集成文档"},
+    {"step": "step_8", "status": "completed", "summary": "系统架构图、数据流、引擎插件系统、VAD架构、设计决策 → architecture.md"},
+    {"step": "step_9", "status": "completed", "summary": "项目概述文档 → project_overview.md"},
+    {"step": "step_10", "status": "completed", "summary": "主索引含Agent职责映射 → index.md"},
+    {"step": "step_11", "status": "completed", "summary": "所有7个核心文档已验证生成"},
+    {"step": "step_12", "status": "completed", "summary": "工作流完成，后续步骤：create-architecture → create-prd → create-epics-and-stories"}
+  ],
+  "current_step": "completed",
+  "outputs_generated": [
+    "docs/project-scan-report.json",
+    "docs/tech_stack.md",
+    "docs/api_contracts.md",
+    "docs/source_tree.md",
+    "docs/dev_ops.md",
+    "docs/architecture.md",
+    "docs/project_overview.md",
+    "docs/index.md"
+  ],
+  "document_counts": {
+    "generated_by_workflow": 7,
+    "existing_before_scan": 30,
+    "total_with_new": 37
+  },
+  "next_steps": [
+    "create-architecture: 定义清晰模块边界和Agent接口契约",
+    "create-prd: 定义SmartASR v1.0功能需求",
+    "create-epics-and-stories: 拆解为Sprint工作单元",
+    "dev-story: 按Story逐一实现"
+  ]
+}
