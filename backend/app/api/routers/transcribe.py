@@ -165,28 +165,33 @@ async def transcribe(
 
     if async_mode:
         # ---- 异步模式 ----
+        upload_path = None
         try:
             upload_path = _save_upload_file(file)
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"保存文件失败: {str(e)}")
 
-        task_id = task_manager.create_task(
-            engine=engine,
-            model=model,
-            audio_path=str(upload_path),
-            callback_url=callback_url,
-        )
+        try:
+            task_id = task_manager.create_task(
+                engine=engine,
+                model=model,
+                audio_path=str(upload_path),
+                callback_url=callback_url,
+            )
 
-        background_tasks.add_task(
-            _run_transcription_task,
-            task_id=task_id,
-            audio_path=upload_path,
-            engine=engine,
-            model=model,
-            language=language,
-            options=options_dict,
-            callback_url=callback_url,
-        )
+            background_tasks.add_task(
+                _run_transcription_task,
+                task_id=task_id,
+                audio_path=upload_path,
+                engine=engine,
+                model=model,
+                language=language,
+                options=options_dict,
+                callback_url=callback_url,
+            )
+        except Exception as e:
+            _cleanup_files(upload_path)
+            raise HTTPException(status_code=500, detail=f"提交任务失败: {str(e)}")
 
         response.status_code = 202
         return AsyncTranscribeResponse(
