@@ -44,7 +44,7 @@ from ..dto import (
     STTResponse,
     STTSegment,
 )
-from ..exceptions import EngineNotAvailableError, ModelNotFoundError, TranscriptionError
+from ..exceptions import ModelNotFoundError, TranscriptionError
 
 logger = logging.getLogger(__name__)
 
@@ -223,7 +223,7 @@ class QwenLocalEngine(BaseSTTEngine):
             import torch
             from qwen_asr import Qwen3ASRModel
         except ImportError as exc:
-            raise EngineNotAvailableError(f"依赖未安装: {exc}", engine_name=self.name)
+            raise TranscriptionError(f"依赖未安装: {exc}", engine_name=self.name)
 
         model_path = self._resolve_model_path(model_key)
         dtype = torch.bfloat16 if self.is_cuda else torch.float32
@@ -247,7 +247,7 @@ class QwenLocalEngine(BaseSTTEngine):
         """执行语音识别"""
         available, reason = self.check_available()
         if not available:
-            raise EngineNotAvailableError(reason, engine_name=self.name)
+            raise TranscriptionError(f"引擎不可用: {reason}", engine_name=self.name)
 
         model_key = request.model or DEFAULT_MODEL
         self._load_model(model_key)
@@ -277,7 +277,7 @@ class QwenLocalEngine(BaseSTTEngine):
                 duration_ms=duration_ms,
             )
 
-        except (EngineNotAvailableError, ModelNotFoundError, TranscriptionError):
+        except (ModelNotFoundError, TranscriptionError):
             raise
         except Exception as exc:
             logger.exception("Qwen3-ASR 识别失败: %s", exc)

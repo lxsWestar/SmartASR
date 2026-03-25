@@ -52,3 +52,20 @@ pyvideotrans/
 .pytest_cache/
 .coverage
 htmlcov/
+
+# 不需要打包进镜像的目录
+tests/
+docs/
+documents/
+scripts/
+_bmad/
+_bmad-output/
+SenseVoiceSmall/
+frontend/
+
+# 临时文件
+tmpclaude-*/
+
+# git clone 的模型目录内不需要 .git 元数据
+models/**/.git
+models/**/.gitattributes
