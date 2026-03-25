@@ -240,7 +240,7 @@ SmartASR/
 ### 运行测试
 
 ```bash
-pytest tests/unit/                    # 单元测试 (123 tests)
+pytest tests/unit/                    # 单元测试 (119 tests)
 pytest tests/integration/             # 集成测试 (需要模型)
 pytest tests/ --cov=backend           # 带覆盖率
 ```

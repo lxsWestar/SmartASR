@@ -137,8 +137,8 @@
 | M4 引擎注册 | ✅ 完成 | AI |
 | M5 FunASR | ✅ 完成 | AI |
 | M6 Qwen-ASR | ✅ 完成 | AI |
-| M7 API 路由 | ⏳ 进行中 | AI |
-| M8 测试文档 | ✅ 完成 (135 tests) | AI |
+| M7 API 路由 | ✅ 完成 (OpenAI 兼容) | AI |
+| M8 测试文档 | ✅ 完成 (119 unit tests) | AI |
 
 ---
 
