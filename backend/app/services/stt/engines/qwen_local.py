@@ -261,6 +261,8 @@ class QwenLocalEngine(BaseSTTEngine):
                 language=qwen_lang,
                 max_new_tokens=max_new_tokens,
             )
+            if not results:
+                raise TranscriptionError("模型返回空结果", engine_name=self.name)
             result = results[0]
             text = result.text.strip()
             detected_lang = result.language or request.language or "auto"
@@ -271,7 +273,7 @@ class QwenLocalEngine(BaseSTTEngine):
             return STTResponse(
                 text=text,
                 segments=[STTSegment(start_ms=0, end_ms=duration_ms, text=text)],
-                language=detected_lang,
+                language_detected=detected_lang,
                 engine=self.name,
                 model=model_key,
                 duration_ms=duration_ms,

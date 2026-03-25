@@ -158,18 +158,14 @@ api/
 
 ```json
 {
-  "error": {
-    "code": "ENGINE_NOT_FOUND",
-    "message": "引擎 'xxx' 不存在",
-    "details": {}
-  }
+  "detail": "错误说明（如：引擎 'xxx' 不存在）"
 }
 ```
 
 ## 交互式文档
 
 启动服务后访问:
-- **Swagger UI**: http://localhost:8000/documents
+- **Swagger UI**: http://localhost:8000/docs
 - **ReDoc**: http://localhost:8000/redoc
 
 ## 部署建议

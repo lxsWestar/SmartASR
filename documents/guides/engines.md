@@ -67,6 +67,7 @@ def get_metadata(cls) -> EngineMetadata:
         display_name="我的引擎",
         type="local",  # 或 "cloud"
         description="引擎描述",
+        vendor="MyVendor",  # 厂商名，显示在 GET /engines 响应中
         supported_languages=["zh", "en", "ja"],
         models=[
             ModelInfo(
