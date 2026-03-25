@@ -11,8 +11,8 @@ SmartASR 是一个标准 RESTful API 服务。外部系统通过 HTTP 调用本�
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
-| `POST` | `/api/stt/transcribe` | 同步语音识别（适合 <1 分钟音频） |
-| `POST` | `/api/stt/transcribe/async` | 异步语音识别（适合长音频） |
+| `POST` | `/api/stt/audio/transcriptions` | 同步语音识别（适合 <1 分钟音频） |
+| `POST` | `/api/stt/audio/transcriptions?async=true` | 异步语音识别（适合长音频） |
 | `GET`  | `/api/stt/engines` | 列出所有引擎 |
 | `GET`  | `/api/stt/engines/{name}` | 引擎详情（含可用状态） |
 | `GET`  | `/api/stt/engines/{name}/models` | 引擎支持的模型列表 |
@@ -122,7 +122,7 @@ curl http://localhost:8000/api/stt/engines/ali_funasr
 
 ---
 
-### POST /api/stt/transcribe
+### POST /api/stt/audio/transcriptions
 
 同步语音识别，上传音频文件，直接返回识别结果。适合 **1 分钟以内**的音频。
 
@@ -141,30 +141,30 @@ curl http://localhost:8000/api/stt/engines/ali_funasr
 **示例：**
 ```bash
 # 基础调用（自动检测语言，使用默认引擎）
-curl -X POST http://localhost:8000/api/stt/transcribe \
+curl -X POST http://localhost:8000/api/stt/audio/transcriptions \
   -F "file=@audio.mp3"
 
 # 指定引擎和语言
-curl -X POST http://localhost:8000/api/stt/transcribe \
+curl -X POST http://localhost:8000/api/stt/audio/transcriptions \
   -F "file=@audio.mp3" \
   -F "engine=ali_funasr" \
   -F "language=ja"
 
 # 使用云端引擎（需先设置 DASHSCOPE_API_KEY）
-curl -X POST http://localhost:8000/api/stt/transcribe \
+curl -X POST http://localhost:8000/api/stt/audio/transcriptions \
   -F "file=@audio.mp3" \
   -F "engine=ali_qwen" \
   -F "model=paraformer-v2"
 
 # 使用本地 Qwen3-ASR 引擎
-curl -X POST http://localhost:8000/api/stt/transcribe \
+curl -X POST http://localhost:8000/api/stt/audio/transcriptions \
   -F "file=@audio.mp3" \
   -F "engine=qwen_local" \
   -F "model=Qwen3-ASR-0.6B" \
   -F "language=ja"
 
 # 传入引擎参数（JSON）
-curl -X POST http://localhost:8000/api/stt/transcribe \
+curl -X POST http://localhost:8000/api/stt/audio/transcriptions \
   -F "file=@audio.mp3" \
   -F "engine=ali_funasr" \
   -F 'options={"use_itn": true, "max_speakers": 2}'
@@ -195,13 +195,13 @@ curl -X POST http://localhost:8000/api/stt/transcribe \
 
 ---
 
-### POST /api/stt/transcribe/async
+### POST /api/stt/audio/transcriptions?async=true
 
 异步语音识别，立即返回 task_id，通过轮询任务状态获取结果。适合**长音频或批量处理**。
 
 ```bash
 # 提交任务
-curl -X POST http://localhost:8000/api/stt/transcribe/async \
+curl -X POST http://localhost:8000/api/stt/audio/transcriptions?async=true \
   -F "file=@long_audio.mp3" \
   -F "engine=ali_funasr"
 ```
@@ -301,3 +301,4 @@ docker run -p 8000:8000 \
 | `DASHSCOPE_API_KEY` | 阿里云 API Key（ali_qwen 引擎必需） | `sk-xxxxxxxx` |
 | `STT_MODEL_SERVER` | 内网模型服务地址 | `http://192.168.1.100:8765` |
 | `FUNASR_HUB` | FunASR 模型来源 | `ms`（ModelScope）/ `hf`（HuggingFace） |
+

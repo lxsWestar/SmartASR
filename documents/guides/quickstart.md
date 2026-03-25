@@ -46,7 +46,7 @@ python run.py
 python -m backend.app.api.main
 
 # 调用 API
-curl -X POST http://localhost:8000/api/stt/transcribe \
+curl -X POST http://localhost:8000/api/stt/audio/transcriptions \
   -F "file=@test.mp3"
 ```
 
@@ -63,3 +63,4 @@ curl -X POST http://localhost:8000/api/stt/transcribe \
 - [完整 API 文档](../api/README.md)
 - [嵌入到现有项目](embedding.md)
 - [开发自定义引擎](engines.md)
+

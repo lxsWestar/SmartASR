@@ -121,7 +121,7 @@ python -m backend.app.cli serve
 smartasr transcribe audio.mp3 -o result.srt
 
 # API
-curl -X POST http://localhost:8000/api/stt/transcribe -F "file=@audio.mp3"
+curl -X POST http://localhost:8000/api/stt/audio/transcriptions -F "file=@audio.mp3"
 
 # Python
 from backend.app.services.stt import transcribe
@@ -258,3 +258,4 @@ pytest tests/ --cov=backend           # 带覆盖率
 ## 许可证
 
 MIT License
+

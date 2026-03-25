@@ -20,7 +20,7 @@ api/
 ├── main.py            # FastAPI 应用入口
 └── routers/           # 路由模块 (按功能拆分)
     ├── __init__.py
-    ├── transcribe.py  # 转写 API (/api/stt/transcribe)
+    ├── transcribe.py  # 转写 API (/api/stt/audio/transcriptions)
     ├── engines.py     # 引擎管理 (/api/stt/engines)
     ├── tasks.py       # 任务管理 (/api/stt/tasks)
     ├── files.py       # 文件管理 (/api/stt/files)
@@ -56,8 +56,8 @@ uvicorn backend.app.api.main:app --host 0.0.0.0 --port 8000 --reload
 ### 转写 API (`routers/transcribe.py`)
 | 方法 | 端点 | 说明 |
 |------|------|------|
-| POST | `/api/stt/transcribe` | 同步识别 (适合短音频) |
-| POST | `/api/stt/transcribe/async` | 异步识别 (适合长音频) |
+| POST | `/api/stt/audio/transcriptions` | 同步识别 (适合短音频) |
+| POST | `/api/stt/audio/transcriptions?async=true` | 异步识别 (适合长音频) |
 
 ### 引擎管理 (`routers/engines.py`)
 | 方法 | 端点 | 说明 |
@@ -103,7 +103,7 @@ uvicorn backend.app.api.main:app --host 0.0.0.0 --port 8000 --reload
 
 ### 同步转写
 ```bash
-curl -X POST http://localhost:8000/api/stt/transcribe \
+curl -X POST http://localhost:8000/api/stt/audio/transcriptions \
   -F "file=@audio.mp3" \
   -F "engine=ali_funasr" \
   -F "model=SenseVoiceSmall"
@@ -125,7 +125,7 @@ curl -X POST http://localhost:8000/api/stt/transcribe \
 ### 异步转写
 ```bash
 # 提交任务
-curl -X POST http://localhost:8000/api/stt/transcribe/async \
+curl -X POST http://localhost:8000/api/stt/audio/transcriptions?async=true \
   -F "file=@long_audio.mp3"
 
 # 响应: {"task_id": "uuid-xxxx", "status": "pending"}
@@ -194,3 +194,4 @@ CMD ["python", "-m", "backend.app.cli", "serve", "--host", "0.0.0.0"]
 - **模块**: API 服务层
 - **依赖**: FastAPI, Uvicorn, python-multipart
 - **文档**: 详见 [TODO-api.md](../../../TODO-api.md)
+

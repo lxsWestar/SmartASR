@@ -3,8 +3,9 @@ transcribe.py - 语音识别 API
 ==============================
 
 端点:
-- POST /transcribe - 同步识别 (适合短音频)
-- POST /transcribe/async - 异步识别 (适合长音频)
+- POST /audio/transcriptions - 语音识别 (OpenAI 兼容风格)
+  - 同步: 直接返回识别结果 (默认, 适合短音频)
+  - 异步: ?async=true, 返回 task_id, 通过 /tasks/{id} 查询结果 (适合长音频)
 """
 
 import json
@@ -14,7 +15,7 @@ import shutil
 from pathlib import Path
 from typing import Optional, Any, Dict
 
-from fastapi import APIRouter, HTTPException, UploadFile, File, Form, BackgroundTasks
+from fastapi import APIRouter, HTTPException, UploadFile, File, Form, BackgroundTasks, Query, Response
 from pydantic import BaseModel
 from typing import List
 
@@ -117,21 +118,34 @@ def _cleanup_files(*files: Path) -> None:
 
 # ============ API 端点 ============
 
-@router.post("/transcribe", response_model=TranscribeResponse)
-async def transcribe_sync(
+@router.post(
+    "/audio/transcriptions",
+    responses={
+        200: {"model": TranscribeResponse, "description": "同步识别结果"},
+        202: {"model": AsyncTranscribeResponse, "description": "异步任务已提交"},
+    },
+)
+async def transcribe(
+    response: Response,
+    background_tasks: BackgroundTasks,
     file: UploadFile = File(..., description="音频文件"),
     engine: str = Form(default="ali_funasr", description="引擎名称"),
     model: Optional[str] = Form(default=None, description="模型名称"),
     language: str = Form(default="auto", description="语言 (zh/en/ja/ko/auto)"),
     options: Optional[str] = Form(default=None, description="引擎特定参数 (JSON)"),
+    callback_url: Optional[str] = Form(default=None, description="异步完成回调 URL"),
+    async_mode: bool = Query(default=False, alias="async", description="异步模式: true 时返回 task_id"),
 ):
     """
-    同步语音识别
-    
-    上传音频文件并立即返回识别结果。适合短音频 (< 1分钟)。
-    
+    语音识别 (OpenAI 兼容)
+
+    上传音频文件进行识别。
+
+    - **同步模式** (默认): 直接返回识别结果，适合短音频 (< 1分钟)
+    - **异步模式** (`?async=true`): 立即返回 task_id，通过 `GET /tasks/{task_id}` 轮询结果，适合长音频
+
     **支持格式**: mp3, wav, flac, ogg, m4a, aac, webm, mp4, mkv, avi
-    
+
     **示例 options**:
     ```json
     {"use_itn": true, "max_speakers": 2}
@@ -140,7 +154,7 @@ async def transcribe_sync(
     # 检查 FFmpeg
     if not check_ffmpeg():
         raise HTTPException(status_code=500, detail="FFmpeg 未安装")
-    
+
     # 解析 options
     options_dict: Dict[str, Any] = {}
     if options:
@@ -148,135 +162,98 @@ async def transcribe_sync(
             options_dict = json.loads(options)
         except json.JSONDecodeError:
             raise HTTPException(status_code=400, detail="options 必须是有效的 JSON")
-    
-    # 保存上传文件
-    upload_path = None
-    processed_path = None
-    
-    try:
-        upload_path = _save_upload_file(file)
-        logger.info(f"保存上传文件: {upload_path}")
-        
-        # 预处理音频
-        processed_path = _preprocess_audio(upload_path)
-        logger.info(f"预处理完成: {processed_path}")
-        
-        # 创建引擎
+
+    if async_mode:
+        # ---- 异步模式 ----
         try:
-            stt_engine = create_engine(engine)
-        except EngineNotFoundError:
-            raise HTTPException(status_code=404, detail=f"引擎 '{engine}' 不存在")
-        
-        # 检查引擎可用性
-        available, reason = stt_engine.check_available()
-        if not available:
-            raise HTTPException(status_code=503, detail=f"引擎不可用: {reason}")
-        
-        # 构建请求
-        request = STTRequest(
-            audio_path=processed_path,
-            language=language,
+            upload_path = _save_upload_file(file)
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"保存文件失败: {str(e)}")
+
+        task_id = task_manager.create_task(
             engine=engine,
             model=model,
+            audio_path=str(upload_path),
+            callback_url=callback_url,
+        )
+
+        background_tasks.add_task(
+            _run_transcription_task,
+            task_id=task_id,
+            audio_path=upload_path,
+            engine=engine,
+            model=model,
+            language=language,
             options=options_dict,
+            callback_url=callback_url,
         )
-        
-        # 执行识别
-        try:
-            result = stt_engine.transcribe(request)
-        except ModelNotFoundError as e:
-            raise HTTPException(status_code=404, detail=str(e))
-        except TranscriptionError as e:
-            raise HTTPException(status_code=500, detail=str(e))
-        
-        # 返回结果
-        return TranscribeResponse(
-            text=result.text,
-            segments=[
-                SegmentResponse(
-                    start_ms=seg.start_ms,
-                    end_ms=seg.end_ms,
-                    text=seg.text,
-                )
-                for seg in result.segments
-            ],
-            duration_ms=result.duration_ms,
-            engine=result.engine,
-            model=result.model,
-            language_detected=result.language_detected,
+
+        response.status_code = 202
+        return AsyncTranscribeResponse(
+            task_id=task_id,
+            status=TaskStatus.PENDING.value,
+            message="任务已提交",
         )
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.exception(f"识别失败: {e}")
-        raise HTTPException(status_code=500, detail=f"识别失败: {str(e)}")
-    finally:
-        # 清理临时文件
-        _cleanup_files(upload_path, processed_path)
 
+    else:
+        # ---- 同步模式 ----
+        upload_path = None
+        processed_path = None
 
-@router.post("/transcribe/async", response_model=AsyncTranscribeResponse)
-async def transcribe_async(
-    background_tasks: BackgroundTasks,
-    file: UploadFile = File(..., description="音频文件"),
-    engine: str = Form(default="ali_funasr", description="引擎名称"),
-    model: Optional[str] = Form(default=None, description="模型名称"),
-    language: str = Form(default="auto", description="语言 (zh/en/ja/ko/auto)"),
-    options: Optional[str] = Form(default=None, description="引擎特定参数 (JSON)"),
-    callback_url: Optional[str] = Form(default=None, description="完成回调 URL"),
-):
-    """
-    异步语音识别
-    
-    提交音频文件并返回任务 ID，通过 `/tasks/{task_id}` 查询结果。
-    适合长音频 (> 1分钟)。
-    
-    **回调**: 如果提供 `callback_url`，任务完成时会 POST 结果到该地址。
-    """
-    # 检查 FFmpeg
-    if not check_ffmpeg():
-        raise HTTPException(status_code=500, detail="FFmpeg 未安装")
-    
-    # 解析 options
-    options_dict: Dict[str, Any] = {}
-    if options:
         try:
-            options_dict = json.loads(options)
-        except json.JSONDecodeError:
-            raise HTTPException(status_code=400, detail="options 必须是有效的 JSON")
-    
-    # 保存上传文件 (异步任务需要保留文件)
-    try:
-        upload_path = _save_upload_file(file)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"保存文件失败: {str(e)}")
-    
-    # 创建任务
-    task_id = task_manager.create_task(
-        engine=engine,
-        model=model,
-        audio_path=str(upload_path),
-        callback_url=callback_url,
-    )
-    
-    # 添加后台任务
-    background_tasks.add_task(
-        _run_transcription_task,
-        task_id=task_id,
-        audio_path=upload_path,
-        engine=engine,
-        model=model,
-        language=language,
-        options=options_dict,
-        callback_url=callback_url,
-    )
-    
-    return AsyncTranscribeResponse(
-        task_id=task_id,
-        status=TaskStatus.PENDING.value,
-        message="任务已提交",
-    )
+            upload_path = _save_upload_file(file)
+            logger.info(f"保存上传文件: {upload_path}")
+
+            processed_path = _preprocess_audio(upload_path)
+            logger.info(f"预处理完成: {processed_path}")
+
+            try:
+                stt_engine = create_engine(engine)
+            except EngineNotFoundError:
+                raise HTTPException(status_code=404, detail=f"引擎 '{engine}' 不存在")
+
+            available, reason = stt_engine.check_available()
+            if not available:
+                raise HTTPException(status_code=503, detail=f"引擎不可用: {reason}")
+
+            request = STTRequest(
+                audio_path=processed_path,
+                language=language,
+                engine=engine,
+                model=model,
+                options=options_dict,
+            )
+
+            try:
+                result = stt_engine.transcribe(request)
+            except ModelNotFoundError as e:
+                raise HTTPException(status_code=404, detail=str(e))
+            except TranscriptionError as e:
+                raise HTTPException(status_code=500, detail=str(e))
+
+            return TranscribeResponse(
+                text=result.text,
+                segments=[
+                    SegmentResponse(
+                        start_ms=seg.start_ms,
+                        end_ms=seg.end_ms,
+                        text=seg.text,
+                    )
+                    for seg in result.segments
+                ],
+                duration_ms=result.duration_ms,
+                engine=result.engine,
+                model=result.model,
+                language_detected=result.language_detected,
+            )
+
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.exception(f"识别失败: {e}")
+            raise HTTPException(status_code=500, detail=f"识别失败: {str(e)}")
+        finally:
+            _cleanup_files(upload_path, processed_path)
 
 
 async def _run_transcription_task(
