@@ -12,13 +12,17 @@ SmartASR 是一个标准 RESTful API 服务。外部系统通过 HTTP 调用本�
 | 方法 | 路径 | 说明 |
 |------|------|------|
 | `POST` | `/api/stt/audio/transcriptions` | 同步语音识别（适合 <1 分钟音频） |
-| `POST` | `/api/stt/audio/transcriptions?async=true` | 异步语音识别（适合长音频） |
+| `POST` | `/api/stt/audio/transcriptions?async=true` | 异步语音识别（返回 task_id，适合长音频） |
 | `GET`  | `/api/stt/engines` | 列出所有引擎 |
 | `GET`  | `/api/stt/engines/{name}` | 引擎详情（含可用状态） |
 | `GET`  | `/api/stt/engines/{name}/models` | 引擎支持的模型列表 |
 | `GET`  | `/api/stt/engines/{name}/models/{model}` | 单个模型详情 |
-| `GET`  | `/api/stt/tasks/{task_id}` | 查询异步任务状态 |
+| `GET`  | `/api/stt/tasks` | 列出所有任务（支持 status 过滤） |
+| `GET`  | `/api/stt/tasks/{task_id}` | 查询异步任务状态/结果 |
+| `DELETE` | `/api/stt/tasks/{task_id}` | 取消/删除任务 |
 | `GET`  | `/api/stt/health` | 健康检查 |
+
+> 完整端点（含 `/config`, `/files`, `/health/simple`, `/health/ready`）见 Swagger UI：`http://localhost:8000/docs`
 
 ---
 
@@ -118,7 +122,7 @@ curl http://localhost:8000/api/stt/engines/ali_funasr
 }
 ```
 
-> **重要**：`available: false` 时代表依赖未安装或配置缺失，调用 `/transcribe` 会返回 503。先检查此字段再决定是否使用该引擎。
+> **重要**：`available: false` 时代表依赖未安装或配置缺失，调用 `/audio/transcriptions` 会返回 503。先检查此字段再决定是否使用该引擎。
 
 ---
 
@@ -135,6 +139,7 @@ curl http://localhost:8000/api/stt/engines/ali_funasr
 | `model` | string | ❌ | 引擎默认值 | 模型名称 |
 | `language` | string | ❌ | `auto` | 语言代码 |
 | `options` | string（JSON） | ❌ | `{}` | 引擎特定参数 |
+| `callback_url` | string | ❌ | - | 异步模式专用：任务完成/失败时 POST 通知到此 URL |
 
 **支持的音频格式**：mp3、wav、flac、ogg、m4a、aac、webm、mp4、mkv、avi
 
@@ -199,14 +204,16 @@ curl -X POST http://localhost:8000/api/stt/audio/transcriptions \
 
 异步语音识别，立即返回 task_id，通过轮询任务状态获取结果。适合**长音频或批量处理**。
 
+**HTTP 响应状态**：`202 Accepted`
+
 ```bash
 # 提交任务
-curl -X POST http://localhost:8000/api/stt/audio/transcriptions?async=true \
+curl -X POST "http://localhost:8000/api/stt/audio/transcriptions?async=true" \
   -F "file=@long_audio.mp3" \
   -F "engine=ali_funasr"
 ```
 
-**响应：**
+**响应（HTTP 202）：**
 ```json
 {
   "task_id": "abc123",
@@ -220,11 +227,19 @@ curl -X POST http://localhost:8000/api/stt/audio/transcriptions?async=true \
 curl http://localhost:8000/api/stt/tasks/abc123
 ```
 
-**任务状态响应：**
+**任务详情响应：**
 ```json
 {
   "task_id": "abc123",
   "status": "completed",
+  "engine": "ali_funasr",
+  "model": "SenseVoiceSmall",
+  "created_at": "2024-01-01T12:00:00",
+  "updated_at": "2024-01-01T12:00:05",
+  "progress": 1.0,
+  "progress_current": 10,
+  "progress_total": 10,
+  "progress_message": "识别完成",
   "result": {
     "text": "识别出的完整文本",
     "segments": [...],
@@ -232,11 +247,12 @@ curl http://localhost:8000/api/stt/tasks/abc123
     "engine": "ali_funasr",
     "model": "SenseVoiceSmall",
     "language_detected": "zh"
-  }
+  },
+  "error": null
 }
 ```
 
-`status` 取值：`pending`（排队中）、`processing`（识别中）、`completed`（已完成）、`failed`（失败）
+`status` 取值：`pending`（排队中）、`processing`（识别中）、`completed`（已完成）、`failed`（失败）、`cancelled`（已取消）
 
 ---
 
