@@ -162,11 +162,11 @@ class QwenLocalEngine(BaseSTTEngine):
                     description="识别语言（auto 表示自动检测）",
                 ),
                 ParameterSpec(
-                    name="max_new_tokens",
-                    type="integer",
+                    name="context",
+                    type="string",
                     required=False,
-                    default=256,
-                    description="最大生成 token 数量，长音频可适当调大",
+                    default="",
+                    description="识别上下文提示（可选，帮助模型识别专有名词）",
                 ),
             ],
         )
@@ -252,14 +252,15 @@ class QwenLocalEngine(BaseSTTEngine):
         model_key = request.model or DEFAULT_MODEL
         self._load_model(model_key)
 
-        max_new_tokens: int = int((request.options or {}).get("max_new_tokens", 256))
         qwen_lang = _to_qwen_language(request.language)
+        context: str = str((request.options or {}).get("context", ""))
 
         try:
             results = self._model.transcribe(
                 audio=str(request.audio_path),
                 language=qwen_lang,
-                max_new_tokens=max_new_tokens,
+                context=context,
+                return_time_stamps=False,
             )
             if not results:
                 raise TranscriptionError("模型返回空结果", engine_name=self.name)
