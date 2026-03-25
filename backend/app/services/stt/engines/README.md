@@ -10,8 +10,9 @@
 engines/
 ├── __init__.py       # 自动发现和加载引擎
 ├── _template.py      # 引擎开发模板 (不会被加载)
-├── ali_funasr.py     # 阿里 FunASR 本地引擎 (待实现)
-└── ali_qwen.py       # 阿里百炼云端引擎 (待实现)
+├── ali_funasr.py     # 阿里 FunASR 本地引擎
+├── ali_qwen.py       # 阿里百炼云端引擎
+└── qwen_local.py     # Qwen3-ASR 本地大模型引擎
 ```
 
 ## 核心机制
@@ -23,13 +24,13 @@ engines/
 - 依赖缺失时静默跳过，不影响其他引擎
 
 ### 命名约定
-| 文件名 | 引擎名 | 说明 |
-|--------|--------|------|
-| `ali_funasr.py` | `ali_funasr` | 阿里 FunASR 本地 |
-| `ali_qwen.py` | `ali_qwen` | 阿里百炼云端 |
-| `whisper.py` | `whisper` | OpenAI Whisper (未来) |
-| `_template.py` | - | 模板，不加载 |
-| `_utils.py` | - | 工具，不加载 |
+| 文件名 | 引擎名 | type | vendor | 说明 |
+|--------|--------|------|--------|------|
+| `ali_funasr.py` | `ali_funasr` | `local` | `Alibaba` | 阿里 FunASR 本地推理 |
+| `ali_qwen.py` | `ali_qwen` | `cloud` | `Alibaba` | 阿里百炼云端 API |
+| `qwen_local.py` | `qwen_local` | `local` | `Alibaba` | Qwen3-ASR 本地大模型推理 |
+| `_template.py` | - | - | - | 模板，不加载 |
+| `_utils.py` | - | - | - | 工具，不加载 |
 
 ## 添加新引擎步骤
 
@@ -47,9 +48,10 @@ from ..registry import register_engine
 @register_engine
 @dataclass
 class MyEngine(BaseSTTEngine):
-    name = "my_engine"           # 引擎标识
-    display_name = "我的引擎"     # 显示名称
-    engine_type = "local"        # local 或 cloud
+    name = "my_engine"           # 引擎标识（对应 API 中的 engine 参数）
+    display_name = "我的引擎"     # 显示名称（出现在 GET /engines 响应中）
+    engine_type = "local"        # local（本地推理）或 cloud（远程 API）
+    vendor = "MyVendor"          # 厂商名（出现在 GET /engines 响应中）
 ```
 
 ### 3. 实现必要方法
@@ -142,5 +144,22 @@ def transcribe(self, request: STTRequest) -> STTResponse:
 
 | 引擎 | 文件 | 状态 | 依赖 |
 |------|------|------|------|
-| FunASR | ali_funasr.py | ✅ 已完成 | funasr, torch |
-| Qwen-ASR | ali_qwen.py | ✅ 已完成 | dashscope |
+| `ali_funasr` | ali_funasr.py | ✅ 已完成 | `funasr`, `torch` |
+| `ali_qwen` | ali_qwen.py | ✅ 已完成 | `dashscope` |
+| `qwen_local` | qwen_local.py | ✅ 已完成 | `qwen-asr`, `soundfile`, `torch` |
+
+### qwen_local 模型下载
+
+```bash
+# 推荐方式：git clone（需安装 git-lfs）
+git clone https://huggingface.co/Qwen/Qwen3-ASR-0.6B ./models/Qwen3-ASR-0.6B
+git clone https://huggingface.co/Qwen/Qwen3-ASR-7B  ./models/Qwen3-ASR-7B
+
+# 设置模型目录（可选，默认查找 ./models/）
+export STT_MODELS_DIR=./models
+```
+
+模型路径解析优先级：
+1. `{STT_MODELS_DIR}/Qwen3-ASR-0.6B/`
+2. `{STT_MODELS_DIR}/Qwen--Qwen3-ASR-0.6B/`
+3. HuggingFace Hub 在线下载（`Qwen/Qwen3-ASR-0.6B`）

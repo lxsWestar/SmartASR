@@ -1,56 +1,176 @@
 # SmartASR API 参考
 
-## 概述
+SmartASR 是一个标准 RESTful API 服务。外部系统通过 HTTP 调用本服务完成语音识别，**无需关心内部实现**。
 
-SmartASR 提供两种使用方式：
+**Base URL**: `http://<host>:8000`  
+**API 前缀**: `/api/stt`
 
-1. **HTTP API 服务** - 独立运行的 REST API
-2. **Python 库** - 直接导入到你的项目
+---
 
-## 快速示例
+## 端点速览
 
-### Python 库方式
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| `POST` | `/api/stt/transcribe` | 同步语音识别（适合 <1 分钟音频） |
+| `POST` | `/api/stt/transcribe/async` | 异步语音识别（适合长音频） |
+| `GET`  | `/api/stt/engines` | 列出所有引擎 |
+| `GET`  | `/api/stt/engines/{name}` | 引擎详情（含可用状态） |
+| `GET`  | `/api/stt/engines/{name}/models` | 引擎支持的模型列表 |
+| `GET`  | `/api/stt/engines/{name}/models/{model}` | 单个模型详情 |
+| `GET`  | `/api/stt/tasks/{task_id}` | 查询异步任务状态 |
+| `GET`  | `/api/stt/health` | 健康检查 |
 
-```python
-from backend.app.services.stt import transcribe, list_engines
+---
 
-# 列出可用引擎
-engines = list_engines()
+## 引擎说明
 
-# 执行语音识别
-result = transcribe("audio.mp3", engine="ali_funasr")
-print(result.text)
-```
+服务当前内置三个引擎：
 
-### HTTP API 方式
+| 引擎名 | display_name | type | vendor | 说明 |
+|--------|-------------|------|--------|------|
+| `ali_funasr` | FunASR（本地） | `local` | `Alibaba` | 本地推理，支持多语言，需要 torch + funasr |
+| `ali_qwen` | Qwen-ASR（云端） | `cloud` | `Alibaba` | 阿里云 API，按量计费，需要 DASHSCOPE_API_KEY |
+| `qwen_local` | Qwen3-ASR（本地） | `local` | `Alibaba` | 本地 Qwen3 大模型推理，需要 qwen-asr 包 + 模型文件 |
+
+> **type 字段含义**: `local` = 本地推理（模型在本机），`cloud` = 调用远程 API。
+
+---
+
+## 语言代码
+
+请求时 `language` 字段使用以下 ISO 639-1 代码（服务内部自动转换为各引擎所需格式）：
+
+| 代码 | 语言 |
+|------|------|
+| `auto` | 自动检测（默认） |
+| `zh` | 中文（普通话） |
+| `en` | 英文 |
+| `ja` | 日文 |
+| `ko` | 韩文 |
+| `yue` | 粤语 |
+
+---
+
+## 端点详情
+
+### GET /api/stt/engines
+
+列出所有已注册引擎及其基本信息。
 
 ```bash
-# 启动服务
-python -m SmartASR.server --port 8080
-
-# 调用 API
-curl -X POST http://localhost:8080/api/v1/transcribe \
-  -F "audio=@audio.mp3" \
-  -F "engine=ali_funasr"
+curl http://localhost:8000/api/stt/engines
 ```
 
-## API 端点
+**响应：**
+```json
+{
+  "engines": [
+    {
+      "name": "ali_funasr",
+      "display_name": "FunASR（本地）",
+      "type": "local",
+      "vendor": "Alibaba",
+      "models": ["SenseVoiceSmall", "paraformer-zh"]
+    },
+    {
+      "name": "ali_qwen",
+      "display_name": "Qwen-ASR（云端）",
+      "type": "cloud",
+      "vendor": "Alibaba",
+      "models": ["paraformer-realtime-v2", "paraformer-v2"]
+    },
+    {
+      "name": "qwen_local",
+      "display_name": "Qwen3-ASR（本地）",
+      "type": "local",
+      "vendor": "Alibaba",
+      "models": ["Qwen3-ASR-0.6B", "Qwen3-ASR-7B"]
+    }
+  ]
+}
+```
 
-### POST /api/v1/transcribe
+---
 
-执行语音识别。
+### GET /api/stt/engines/{name}
 
-**请求参数：**
+获取引擎详细信息，包括当前可用状态、支持的参数和模型。
 
-| 参数 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| audio | file | 是 | 音频文件 |
-| engine | string | 否 | 引擎名称，默认 ali_funasr |
-| language | string | 否 | 语言代码，默认 auto |
-| model | string | 否 | 模型名称 |
+```bash
+curl http://localhost:8000/api/stt/engines/ali_funasr
+```
 
-**响应示例：**
+**响应（部分）：**
+```json
+{
+  "name": "ali_funasr",
+  "display_name": "FunASR（本地）",
+  "type": "local",
+  "description": "阿里 FunASR 本地语音识别引擎",
+  "version": "1.0.0",
+  "available": true,
+  "available_reason": "就绪",
+  "supported_languages": ["zh", "en", "ja", "ko", "yue", "auto"],
+  "requires_api_key": false,
+  "default_model": "SenseVoiceSmall",
+  "models": [...],
+  "parameters": [...]
+}
+```
 
+> **重要**：`available: false` 时代表依赖未安装或配置缺失，调用 `/transcribe` 会返回 503。先检查此字段再决定是否使用该引擎。
+
+---
+
+### POST /api/stt/transcribe
+
+同步语音识别，上传音频文件，直接返回识别结果。适合 **1 分钟以内**的音频。
+
+**请求（multipart/form-data）：**
+
+| 字段 | 类型 | 必填 | 默认值 | 说明 |
+|------|------|------|--------|------|
+| `file` | file | ✅ | - | 音频文件（见支持格式） |
+| `engine` | string | ❌ | `ali_funasr` | 引擎名称 |
+| `model` | string | ❌ | 引擎默认值 | 模型名称 |
+| `language` | string | ❌ | `auto` | 语言代码 |
+| `options` | string（JSON） | ❌ | `{}` | 引擎特定参数 |
+
+**支持的音频格式**：mp3、wav、flac、ogg、m4a、aac、webm、mp4、mkv、avi
+
+**示例：**
+```bash
+# 基础调用（自动检测语言，使用默认引擎）
+curl -X POST http://localhost:8000/api/stt/transcribe \
+  -F "file=@audio.mp3"
+
+# 指定引擎和语言
+curl -X POST http://localhost:8000/api/stt/transcribe \
+  -F "file=@audio.mp3" \
+  -F "engine=ali_funasr" \
+  -F "language=ja"
+
+# 使用云端引擎（需先设置 DASHSCOPE_API_KEY）
+curl -X POST http://localhost:8000/api/stt/transcribe \
+  -F "file=@audio.mp3" \
+  -F "engine=ali_qwen" \
+  -F "model=paraformer-v2"
+
+# 使用本地 Qwen3-ASR 引擎
+curl -X POST http://localhost:8000/api/stt/transcribe \
+  -F "file=@audio.mp3" \
+  -F "engine=qwen_local" \
+  -F "model=Qwen3-ASR-0.6B" \
+  -F "language=ja"
+
+# 传入引擎参数（JSON）
+curl -X POST http://localhost:8000/api/stt/transcribe \
+  -F "file=@audio.mp3" \
+  -F "engine=ali_funasr" \
+  -F 'options={"use_itn": true, "max_speakers": 2}'
+```
+
+**响应：**
 ```json
 {
   "text": "识别出的完整文本",
@@ -69,41 +189,115 @@ curl -X POST http://localhost:8080/api/v1/transcribe \
   "duration_ms": 3000,
   "engine": "ali_funasr",
   "model": "SenseVoiceSmall",
-  "language_detected": "zh"
+  "language_detected": "ja"
 }
 ```
 
-### GET /api/v1/engines
+---
 
-列出所有可用引擎。
+### POST /api/stt/transcribe/async
 
-**响应示例：**
+异步语音识别，立即返回 task_id，通过轮询任务状态获取结果。适合**长音频或批量处理**。
+
+```bash
+# 提交任务
+curl -X POST http://localhost:8000/api/stt/transcribe/async \
+  -F "file=@long_audio.mp3" \
+  -F "engine=ali_funasr"
+```
+
+**响应：**
+```json
+{
+  "task_id": "abc123",
+  "status": "pending",
+  "message": "任务已提交"
+}
+```
+
+```bash
+# 轮询任务状态
+curl http://localhost:8000/api/stt/tasks/abc123
+```
+
+**任务状态响应：**
+```json
+{
+  "task_id": "abc123",
+  "status": "completed",
+  "result": {
+    "text": "识别出的完整文本",
+    "segments": [...],
+    "duration_ms": 60000,
+    "engine": "ali_funasr",
+    "model": "SenseVoiceSmall",
+    "language_detected": "zh"
+  }
+}
+```
+
+`status` 取值：`pending`（排队中）、`processing`（识别中）、`completed`（已完成）、`failed`（失败）
+
+---
+
+### GET /api/stt/health
+
+健康检查，返回服务状态和依赖信息。
+
+```bash
+curl http://localhost:8000/api/stt/health
+```
+
+---
+
+## 错误响应
+
+所有错误返回标准 HTTP 状态码 + JSON 详情：
 
 ```json
 {
-  "engines": [
-    {
-      "name": "ali_funasr",
-      "display_name": "阿里 FunASR (本地)",
-      "type": "local",
-      "available": true
-    }
-  ]
+  "detail": "错误说明"
 }
 ```
 
-### GET /api/v1/engines/{name}
+| HTTP 状态码 | 含义 |
+|-------------|------|
+| `400` | 请求参数错误（如 options 非法 JSON） |
+| `404` | 引擎或模型不存在 |
+| `500` | 服务器错误（如 FFmpeg 未安装） |
+| `503` | 引擎不可用（依赖未安装、API Key 缺失等） |
 
-获取引擎详细信息。
+---
 
-## 错误码
+## 启动服务
 
-| 错误码 | 说明 |
-|--------|------|
-| FFMPEG_NOT_FOUND | FFmpeg 未安装 |
-| ENGINE_NOT_FOUND | 引擎不存在 |
-| MODEL_NOT_FOUND | 模型不存在 |
-| API_KEY_MISSING | API Key 缺失 |
-| TRANSCRIPTION_ERROR | 识别失败 |
-| FILE_TOO_LARGE | 文件过大 |
-| UNSUPPORTED_FORMAT | 不支持的格式 |
+```bash
+# 方式 1：快捷脚本
+python run.py
+
+# 方式 2：直接启动（可自定义端口）
+python -m backend.app.api.main
+
+# 方式 3：uvicorn（开发模式，热重载）
+uvicorn backend.app.api.main:app --host 0.0.0.0 --port 8000 --reload
+
+# 方式 4：Docker
+docker run -p 8000:8000 \
+  -e STT_MODELS_DIR=/data/models \
+  -e DASHSCOPE_API_KEY=sk-xxx \
+  -v /path/to/models:/data/models \
+  gijiroku-smartasr:latest
+```
+
+服务启动后 Swagger 文档可访问：`http://localhost:8000/docs`
+
+---
+
+## 环境变量
+
+| 变量名 | 说明 | 示例 |
+|--------|------|------|
+| `STT_MODELS_DIR` | 本地模型目录 | `/data/models` |
+| `DASHSCOPE_API_KEY` | 阿里云 API Key（ali_qwen 引擎必需） | `sk-xxxxxxxx` |
+| `STT_MODEL_SERVER` | 内网模型服务地址 | `http://192.168.1.100:8765` |
+| `FUNASR_HUB` | FunASR 模型来源 | `ms`（ModelScope）/ `hf`（HuggingFace） |

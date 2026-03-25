@@ -26,10 +26,11 @@ SmartASR 是一个从 `pyvideotrans` 提取的独立语音识别服务，专注�
 
 ### 支持的引擎
 
-| 引擎 | 类型 | 特点 | 依赖 |
-|------|------|------|------|
-| **阿里 FunASR** | 本地 | SenseVoiceSmall (多语言) / Paraformer (中文) | `pip install funasr torch` |
-| **阿里 Qwen-ASR** | 云端 | 通义千问大模型，按量计费 | `pip install dashscope` + API Key |
+| 引擎名 | 类型 | 特点 | 依赖 |
+|--------|------|------|------|
+| `ali_funasr` | 本地 | SenseVoiceSmall (多语言) / Paraformer (中文) | `pip install funasr torch` |
+| `ali_qwen` | 云端 | 通义千问大模型，按量计费 | `pip install dashscope` + API Key |
+| `qwen_local` | 本地 | Qwen3-ASR 大模型本地推理，高精度多语言 | `pip install qwen-asr soundfile torch` + 模型文件 |
 
 ---
 
@@ -78,8 +79,9 @@ pip install -e ".[api,funasr]"    # 本地识别 + API服务
 
 | 选项 | 说明 | 大小 |
 |------|------|------|
-| `.[api,funasr]` | 本地识别 + API服务 (推荐) | ~2-3GB |
-| `.[api,qwen]` | 云端识别 + API服务 | ~50MB |
+| `.[api,funasr]` | 本地识别 (FunASR) + API服务 (推荐) | ~2-3GB |
+| `.[api,qwen]` | 云端识别 (Qwen API) + API服务 | ~50MB |
+| `.[api,qwen_local]` | 本地识别 (Qwen3-ASR) + API服务 | ~2-3GB |
 | `.[all]` | 完整安装 (含开发工具) | ~3GB |
 
 ### 2. 验证安装
@@ -238,7 +240,7 @@ SmartASR/
 ### 运行测试
 
 ```bash
-pytest tests/unit/                    # 单元测试 (119 tests)
+pytest tests/unit/                    # 单元测试 (123 tests)
 pytest tests/integration/             # 集成测试 (需要模型)
 pytest tests/ --cov=backend           # 带覆盖率
 ```
