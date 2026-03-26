@@ -44,7 +44,8 @@ class STTRequest:
     language: str = "auto"        # 语言: zh/en/ja/auto
     engine: str = "ali_funasr"    # 引擎名称
     model: Optional[str] = None   # 模型名称
-    options: Dict[str, Any] = field(default_factory=dict)  # 引擎特定参数
+    params: Dict[str, Any] = field(default_factory=dict)          # 标准层：SmartASR 统一参数名
+    engine_options: Dict[str, Any] = field(default_factory=dict)  # 直通层：原样透传给底层 SDK
     callback_url: Optional[str] = None  # Webhook 回调 URL
     progress_callback: Optional[ProgressCallback] = field(default=None, repr=False)  # 进度回调
     
@@ -55,7 +56,8 @@ class STTRequest:
             "language": self.language,
             "engine": self.engine,
             "model": self.model,
-            "options": self.options,
+            "params": self.params,
+            "engine_options": self.engine_options,
             "callback_url": self.callback_url,
         }
     
@@ -124,6 +126,7 @@ class ParameterSpec:
     default: Any = None           # 默认值
     options: Optional[List[Any]] = None  # 可选值列表
     description: str = ""         # 参数描述
+    layer: str = "engine"         # 参数层: "standard"（标准层）或 "engine"（直通层）
     
     def to_dict(self) -> dict:
         """转换为字典"""
@@ -132,6 +135,7 @@ class ParameterSpec:
             "type": self.type,
             "required": self.required,
             "description": self.description,
+            "layer": self.layer,
         }
         if self.default is not None:
             result["default"] = self.default
@@ -198,3 +202,36 @@ class EngineMetadata:
     def to_json(self) -> str:
         """转换为 JSON 字符串"""
         return json.dumps(self.to_dict(), ensure_ascii=False, indent=2)
+
+
+# ============================================================================
+# 标准层参数注册表
+# ============================================================================
+
+STANDARD_PARAMS: Dict[str, ParameterSpec] = {
+    "itn": ParameterSpec(
+        name="itn", type="boolean", required=False, default=True,
+        layer="standard",
+        description="逆文本正则化：将口语数字/标点还原为书面形式（并非所有引擎都支持）",
+    ),
+    "timestamps": ParameterSpec(
+        name="timestamps", type="boolean", required=False, default=False,
+        layer="standard",
+        description="返回词级或句级时间戳（并非所有引擎都支持）",
+    ),
+    "context": ParameterSpec(
+        name="context", type="string", required=False, default="",
+        layer="standard",
+        description="识别上下文提示词，帮助模型识别专有名词（并非所有引擎都支持）",
+    ),
+    "speaker_diarization": ParameterSpec(
+        name="speaker_diarization", type="boolean", required=False, default=False,
+        layer="standard",
+        description="启用说话人分离，识别多人对话（并非所有引擎都支持）",
+    ),
+    "max_speakers": ParameterSpec(
+        name="max_speakers", type="integer", required=False, default=2,
+        layer="standard",
+        description="最大说话人数，仅在 speaker_diarization=true 时有效",
+    ),
+}

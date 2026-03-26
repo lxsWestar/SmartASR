@@ -117,11 +117,25 @@ class FunASREngine(BaseSTTEngine):
     display_name: str = field(default="FunASR", init=False)
     engine_type: str = field(default="local", init=False)
     vendor: str = field(default="Alibaba", init=False)
+    SUPPORTED_STANDARD_PARAMS = {"itn", "timestamps", "speaker_diarization", "max_speakers"}
     
     # 内部状态
     _vad_model: Any = field(default=None, init=False, repr=False)
     _current_model_name: str = field(default="", init=False)
     
+    def _map_standard_params(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """将标准参数映射为 FunASR SDK 参数名"""
+        result: Dict[str, Any] = {}
+        if "itn" in params:
+            result["use_itn"] = bool(params["itn"])
+        if "timestamps" in params:
+            result["sentence_timestamp"] = bool(params["timestamps"])
+        if "speaker_diarization" in params:
+            result["_speaker_diarization"] = bool(params["speaker_diarization"])
+        if "max_speakers" in params:
+            result["max_speakers"] = int(params["max_speakers"])
+        return result
+
     @classmethod
     def get_metadata(cls) -> EngineMetadata:
         """返回引擎元数据"""
@@ -153,6 +167,7 @@ class FunASREngine(BaseSTTEngine):
                     type="boolean",
                     required=False,
                     default=True,
+                    layer="engine",
                     description="是否使用逆文本正则化 (数字转汉字等)",
                 ),
                 ParameterSpec(
@@ -160,6 +175,7 @@ class FunASREngine(BaseSTTEngine):
                     type="integer",
                     required=False,
                     default=-1,
+                    layer="engine",
                     description="最大说话人数 (-1 表示禁用分离)",
                     options=[-1, 2, 3, 4, 5],
                 ),
@@ -196,8 +212,9 @@ class FunASREngine(BaseSTTEngine):
             language = "zh"  # FunASR 默认中文
         
         # 获取选项
-        use_itn = request.options.get("use_itn", True)
-        max_speakers = request.options.get("max_speakers", -1)
+        resolved = self._resolve_params(request)
+        use_itn = resolved.get("use_itn", True)
+        max_speakers = resolved.get("max_speakers", -1)
         
         # 获取进度回调
         progress_callback = request.progress_callback

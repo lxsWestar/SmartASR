@@ -87,6 +87,7 @@ class QwenASREngine(BaseSTTEngine):
     display_name: str = field(default="Qwen-ASR", init=False)
     engine_type: str = field(default="cloud", init=False)
     vendor: str = field(default="Alibaba", init=False)
+    SUPPORTED_STANDARD_PARAMS = {"itn"}
     
     # 配置
     _api_key: Optional[str] = field(default=None, init=False)
@@ -95,7 +96,14 @@ class QwenASREngine(BaseSTTEngine):
         """初始化后从环境变量读取 API Key"""
         super().__post_init__()
         self._api_key = os.environ.get(API_KEY_ENV)
-    
+
+    def _map_standard_params(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """将标准参数映射为 Qwen-ASR SDK 参数名"""
+        result: Dict[str, Any] = {}
+        if "itn" in params:
+            result["enable_itn"] = bool(params["itn"])
+        return result
+
     @classmethod
     def get_metadata(cls) -> EngineMetadata:
         """返回引擎元数据"""
@@ -126,6 +134,7 @@ class QwenASREngine(BaseSTTEngine):
                     name="api_key",
                     type="string",
                     required=False,
+                    layer="engine",
                     description=f"DashScope API Key (或设置环境变量 {API_KEY_ENV})",
                 ),
                 ParameterSpec(
@@ -133,6 +142,7 @@ class QwenASREngine(BaseSTTEngine):
                     type="boolean",
                     required=False,
                     default=True,
+                    layer="engine",
                     description="是否启用语种自动识别",
                 ),
                 ParameterSpec(
@@ -140,6 +150,7 @@ class QwenASREngine(BaseSTTEngine):
                     type="boolean",
                     required=False,
                     default=False,
+                    layer="engine",
                     description="是否启用逆文本正则化",
                 ),
             ],
@@ -163,7 +174,8 @@ class QwenASREngine(BaseSTTEngine):
             raise TranscriptionError(f"引擎不可用: {reason}", engine_name=self.name)
         
         # 获取 API Key
-        api_key = request.options.get("api_key") or self._api_key
+        resolved = self._resolve_params(request)
+        api_key = resolved.get("api_key") or self._api_key
         if not api_key:
             raise APIKeyMissingError(self.name, API_KEY_ENV)
         
@@ -178,8 +190,8 @@ class QwenASREngine(BaseSTTEngine):
             language = "zh"  # 默认中文，但启用 LID
         
         # 获取选项
-        enable_lid = request.options.get("enable_lid", True)
-        enable_itn = request.options.get("enable_itn", False)
+        enable_lid = resolved.get("enable_lid", True)
+        enable_itn = resolved.get("enable_itn", False)
         
         # 使用 VAD 切分音频后识别
         try:

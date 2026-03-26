@@ -65,7 +65,7 @@ def main():
         audio_path=audio_path,
         language="ja",  # 日语
         model=args.model,
-        options=options,
+        engine_options=options,
     )
 
     print(f"\n开始识别...")

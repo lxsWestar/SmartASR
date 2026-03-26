@@ -198,7 +198,7 @@ class TestFunASRTranscription:
             audio_path=nhk_audio_path,
             language="ja",
             engine="ali_funasr",
-            options={"use_itn": True},
+            engine_options={"use_itn": True},
         )
         
         result_itn = funasr_engine.transcribe(request_itn)
@@ -208,7 +208,7 @@ class TestFunASRTranscription:
             audio_path=nhk_audio_path,
             language="ja",
             engine="ali_funasr",
-            options={"use_itn": False},
+            engine_options={"use_itn": False},
         )
         
         result_no_itn = funasr_engine.transcribe(request_no_itn)

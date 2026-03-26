@@ -21,6 +21,7 @@ from backend.app.services.stt.dto import (
     ParameterSpec,
     ModelInfo,
     EngineMetadata,
+    STANDARD_PARAMS,
 )
 
 
@@ -155,7 +156,8 @@ class TestSTTRequest:
         assert req.language == "auto"
         assert req.engine == "ali_funasr"
         assert req.model is None
-        assert req.options == {}
+        assert req.params == {}
+        assert req.engine_options == {}
         assert req.callback_url is None
     
     def test_full_request(self):
@@ -165,13 +167,13 @@ class TestSTTRequest:
             language="zh",
             engine="ali_qwen",
             model="qwen3-asr-turbo",
-            options={"api_key": "sk-xxx", "enable_itn": True},
+            engine_options={"api_key": "sk-xxx", "enable_itn": True},
             callback_url="https://example.com/webhook",
         )
         assert req.language == "zh"
         assert req.engine == "ali_qwen"
         assert req.model == "qwen3-asr-turbo"
-        assert req.options["api_key"] == "sk-xxx"
+        assert req.engine_options["api_key"] == "sk-xxx"
         assert req.callback_url == "https://example.com/webhook"
     
     def test_windows_path(self):
@@ -187,14 +189,34 @@ class TestSTTRequest:
         assert isinstance(d["audio_path"], str)
         # Windows 和 Unix 路径分隔符可能不同
         assert "audio.mp3" in d["audio_path"]
-    
+
+    def test_to_dict_contains_params_and_engine_options(self):
+        """测试 to_dict 包含 params 和 engine_options 字段"""
+        req = STTRequest(
+            audio_path=Path("/a.mp3"),
+            params={"itn": True},
+            engine_options={"use_itn": True},
+        )
+        d = req.to_dict()
+        assert "params" in d
+        assert "engine_options" in d
+        assert "options" not in d
+        assert d["params"] == {"itn": True}
+        assert d["engine_options"] == {"use_itn": True}
+
+    def test_params_and_engine_options_default_empty(self):
+        """测试 params 和 engine_options 默认为空字典"""
+        req = STTRequest(audio_path=Path("/a.mp3"))
+        assert req.params == {}
+        assert req.engine_options == {}
+
     def test_options_isolation(self):
-        """测试 options 不会相互污染"""
+        """测试 engine_options 不会相互污染"""
         req1 = STTRequest(audio_path=Path("/a.mp3"))
         req2 = STTRequest(audio_path=Path("/b.mp3"))
         
-        req1.options["key"] = "value1"
-        assert "key" not in req2.options
+        req1.engine_options["key"] = "value1"
+        assert "key" not in req2.engine_options
 
 
 # ============================================================================
@@ -372,6 +394,26 @@ class TestParameterSpec:
         assert d["default"] == "auto"
         assert d["options"] == ["auto", "small", "large"]
 
+    def test_layer_default_engine(self):
+        """测试 layer 默认值为 'engine'"""
+        spec = ParameterSpec(name="test", type="string")
+        assert spec.layer == "engine"
+        d = spec.to_dict()
+        assert d["layer"] == "engine"
+
+    def test_layer_standard(self):
+        """测试 layer='standard' 正确输出"""
+        spec = ParameterSpec(name="itn", type="boolean", layer="standard")
+        assert spec.layer == "standard"
+        d = spec.to_dict()
+        assert d["layer"] == "standard"
+
+    def test_to_dict_always_includes_layer(self):
+        """测试 to_dict 始终包含 layer 字段"""
+        spec = ParameterSpec(name="x", type="string")
+        d = spec.to_dict()
+        assert "layer" in d
+
 
 # ============================================================================
 # ModelInfo 测试
@@ -532,6 +574,61 @@ class TestEngineMetadata:
         data = json.loads(j)
         assert data["name"] == "test"
         assert "测试引擎" in j  # 确保中文不被转义
+
+
+# ============================================================================
+# STANDARD_PARAMS 注册表测试
+# ============================================================================
+class TestStandardParams:
+    """测试标准层参数注册表"""
+
+    def test_standard_params_contains_all_keys(self):
+        """测试注册表包含所有预期参数"""
+        expected = {"itn", "timestamps", "context", "speaker_diarization", "max_speakers"}
+        assert set(STANDARD_PARAMS.keys()) == expected
+
+    def test_all_standard_params_have_layer_standard(self):
+        """测试所有标准参数的 layer 均为 'standard'"""
+        for name, spec in STANDARD_PARAMS.items():
+            assert spec.layer == "standard", f"{name} 的 layer 应为 'standard'"
+
+    def test_itn_spec(self):
+        """测试 itn 参数规格"""
+        spec = STANDARD_PARAMS["itn"]
+        assert spec.type == "boolean"
+        assert spec.default is True
+        assert spec.required is False
+
+    def test_timestamps_spec(self):
+        """测试 timestamps 参数规格"""
+        spec = STANDARD_PARAMS["timestamps"]
+        assert spec.type == "boolean"
+        assert spec.default is False
+
+    def test_context_spec(self):
+        """测试 context 参数规格"""
+        spec = STANDARD_PARAMS["context"]
+        assert spec.type == "string"
+        assert spec.default == ""
+
+    def test_speaker_diarization_spec(self):
+        """测试 speaker_diarization 参数规格"""
+        spec = STANDARD_PARAMS["speaker_diarization"]
+        assert spec.type == "boolean"
+        assert spec.default is False
+
+    def test_max_speakers_spec(self):
+        """测试 max_speakers 参数规格"""
+        spec = STANDARD_PARAMS["max_speakers"]
+        assert spec.type == "integer"
+        assert spec.default == 2
+
+    def test_standard_params_to_dict_includes_layer(self):
+        """测试 STANDARD_PARAMS 每个条目 to_dict() 包含 layer 字段"""
+        for name, spec in STANDARD_PARAMS.items():
+            d = spec.to_dict()
+            assert "layer" in d, f"{name}.to_dict() 缺少 'layer' 字段"
+            assert d["layer"] == "standard"
 
 
 # ============================================================================

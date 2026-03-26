@@ -132,7 +132,8 @@ async def transcribe(
     engine: str = Form(default="ali_funasr", description="引擎名称"),
     model: Optional[str] = Form(default=None, description="模型名称"),
     language: str = Form(default="auto", description="语言 (zh/en/ja/ko/auto)"),
-    options: Optional[str] = Form(default=None, description="引擎特定参数 (JSON)"),
+    params: Optional[str] = Form(default=None, description="标准层参数 (JSON)，使用 SmartASR 统一参数名"),
+    engine_options: Optional[str] = Form(default=None, description="直通层参数 (JSON)，原样透传给底层 SDK"),
     callback_url: Optional[str] = Form(default=None, description="异步完成回调 URL"),
     async_mode: bool = Query(default=False, alias="async", description="异步模式: true 时返回 task_id"),
 ):
@@ -146,7 +147,12 @@ async def transcribe(
 
     **支持格式**: mp3, wav, flac, ogg, m4a, aac, webm, mp4, mkv, avi
 
-    **示例 options**:
+    **示例 params（标准层）**:
+    ```json
+    {"itn": true, "timestamps": false}
+    ```
+
+    **示例 engine_options（直通层）**:
     ```json
     {"use_itn": true, "max_speakers": 2}
     ```
@@ -155,13 +161,21 @@ async def transcribe(
     if not check_ffmpeg():
         raise HTTPException(status_code=500, detail="FFmpeg 未安装")
 
-    # 解析 options
-    options_dict: Dict[str, Any] = {}
-    if options:
+    # 解析 params（标准层）
+    params_dict: Dict[str, Any] = {}
+    if params:
         try:
-            options_dict = json.loads(options)
+            params_dict = json.loads(params)
         except json.JSONDecodeError:
-            raise HTTPException(status_code=400, detail="options 必须是有效的 JSON")
+            raise HTTPException(status_code=400, detail="params 必须是有效的 JSON")
+
+    # 解析 engine_options（直通层）
+    engine_options_dict: Dict[str, Any] = {}
+    if engine_options:
+        try:
+            engine_options_dict = json.loads(engine_options)
+        except json.JSONDecodeError:
+            raise HTTPException(status_code=400, detail="engine_options 必须是有效的 JSON")
 
     if async_mode:
         # ---- 异步模式 ----
@@ -186,7 +200,8 @@ async def transcribe(
                 engine=engine,
                 model=model,
                 language=language,
-                options=options_dict,
+                params=params_dict,
+                engine_options=engine_options_dict,
                 callback_url=callback_url,
             )
         except Exception as e:
@@ -226,7 +241,8 @@ async def transcribe(
                 language=language,
                 engine=engine,
                 model=model,
-                options=options_dict,
+                params=params_dict,
+                engine_options=engine_options_dict,
             )
 
             try:
@@ -267,7 +283,8 @@ async def _run_transcription_task(
     engine: str,
     model: Optional[str],
     language: str,
-    options: Dict[str, Any],
+    params: Dict[str, Any],
+    engine_options: Dict[str, Any],
     callback_url: Optional[str],
 ) -> None:
     """后台执行识别任务"""
@@ -310,7 +327,8 @@ async def _run_transcription_task(
             language=language,
             engine=engine,
             model=model,
-            options=options,
+            params=params,
+            engine_options=engine_options,
             progress_callback=progress_callback,
         )
         result = stt_engine.transcribe(request)

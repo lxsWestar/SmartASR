@@ -11,7 +11,7 @@ base.py - STT 引擎基类
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import List, Tuple, Optional, TYPE_CHECKING
+from typing import Any, ClassVar, Dict, List, Set, Tuple, Optional, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from .dto import STTRequest, STTResponse, EngineMetadata
@@ -45,6 +45,7 @@ class BaseSTTEngine(ABC):
     display_name: str = ""        # 显示名称（纯名称，不含厂商/部署方式），如 "FunASR"
     engine_type: str = "local"    # "local" 或 "cloud"
     vendor: str = ""              # 厂商，如 "Alibaba"
+    SUPPORTED_STANDARD_PARAMS: ClassVar[Set[str]] = set()  # 子类声明支持哪些标准参数
     
     # 运行时状态 (实例属性)
     device: str = field(default="cpu", init=False)
@@ -138,6 +139,30 @@ class BaseSTTEngine(ABC):
         """卸载模型 - 子类可重写"""
         self._model = None
     
+    def _map_standard_params(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        将 SmartASR 标准参数映射为本引擎 SDK 所需的参数名。
+        子类重写此方法，只需处理 SUPPORTED_STANDARD_PARAMS 中声明的参数。
+        未知参数静默忽略。
+        """
+        return {}
+
+    def _resolve_params(self, request: "STTRequest") -> Dict[str, Any]:
+        """
+        合并标准层和直通层参数，直通层优先级更高。
+
+        合并逻辑：
+        1. 从 request.params 中过滤出本引擎支持的标准参数
+        2. 通过 _map_standard_params() 映射为 SDK 参数名
+        3. 用 request.engine_options 覆盖映射结果
+
+        Returns:
+            合并后的参数字典，可直接从中 .get() 取值
+        """
+        supported = {k: v for k, v in request.params.items() if k in self.SUPPORTED_STANDARD_PARAMS}
+        mapped = self._map_standard_params(supported)
+        return {**mapped, **request.engine_options}
+
     def cleanup(self) -> None:
         """释放资源 - 子类可重写"""
         self._model = None

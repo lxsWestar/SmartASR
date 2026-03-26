@@ -32,7 +32,7 @@ import logging
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from ..base import BaseSTTEngine
 from ..registry import register_engine
@@ -121,10 +121,20 @@ class QwenLocalEngine(BaseSTTEngine):
     display_name: str = field(default="Qwen3-ASR", init=False)
     engine_type: str = field(default="local", init=False)
     vendor: str = field(default="Alibaba", init=False)
+    SUPPORTED_STANDARD_PARAMS = {"context", "timestamps"}
 
     # 运行时状态（懒加载缓存）
     _model: Any = field(default=None, init=False, repr=False)
     _current_model_key: str = field(default="", init=False)
+
+    def _map_standard_params(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """将标准参数映射为 Qwen3-ASR SDK 参数名"""
+        result: Dict[str, Any] = {}
+        if "context" in params:
+            result["context"] = str(params["context"])
+        if "timestamps" in params:
+            result["return_time_stamps"] = bool(params["timestamps"])
+        return result
 
     @classmethod
     def get_metadata(cls) -> EngineMetadata:
@@ -158,6 +168,7 @@ class QwenLocalEngine(BaseSTTEngine):
                     type="string",
                     required=False,
                     default="auto",
+                    layer="engine",
                     options=["auto", "zh", "en", "ja", "ko"],
                     description="识别语言（auto 表示自动检测）",
                 ),
@@ -166,6 +177,7 @@ class QwenLocalEngine(BaseSTTEngine):
                     type="string",
                     required=False,
                     default="",
+                    layer="engine",
                     description="识别上下文提示（可选，帮助模型识别专有名词）",
                 ),
             ],
@@ -253,7 +265,8 @@ class QwenLocalEngine(BaseSTTEngine):
         self._load_model(model_key)
 
         qwen_lang = _to_qwen_language(request.language)
-        context: str = str((request.options or {}).get("context", ""))
+        resolved = self._resolve_params(request)
+        context: str = str(resolved.get("context", ""))
 
         try:
             results = self._model.transcribe(
