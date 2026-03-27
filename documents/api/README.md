@@ -138,8 +138,26 @@ curl http://localhost:8000/api/stt/engines/ali_funasr
 | `engine` | string | ❌ | `ali_funasr` | 引擎名称 |
 | `model` | string | ❌ | 引擎默认值 | 模型名称 |
 | `language` | string | ❌ | `auto` | 语言代码 |
-| `options` | string（JSON） | ❌ | `{}` | 引擎特定参数 |
+| `params` | string（JSON） | ❌ | `{}` | **标准参数层**：SmartASR 统一参数名，引擎自动映射（见下方标准参数表） |
+| `engine_options` | string（JSON） | ❌ | `{}` | **直通参数层**：原样透传给底层 SDK，需了解引擎特定参数名 |
 | `callback_url` | string | ❌ | - | 异步模式专用：任务完成/失败时 POST 通知到此 URL |
+
+**参数层说明：**
+- `params`（标准层）：使用 SmartASR 统一参数名，SmartASR 负责翻译为各引擎的 SDK 参数，推荐普通用户使用
+- `engine_options`（直通层）：原样透传给底层 SDK，高级用户可覆盖标准层映射结果
+- **优先级**：`engine_options` > `params`（直通层可覆盖标准层）
+
+**标准参数（`params` 字段支持的参数）：**
+
+| 参数名 | 类型 | 默认值 | 说明 | 支持的引擎 |
+|--------|------|--------|------|----------|
+| `itn` | boolean | `true` | 逆文本正则化（数字/标点书面化） | ali_funasr, ali_qwen |
+| `timestamps` | boolean | `false` | 返回词级/句级时间戳 | ali_funasr, qwen_local |
+| `context` | string | `""` | 识别上下文提示词，帮助识别专有名词 | qwen_local |
+| `speaker_diarization` | boolean | `false` | 启用说话人分离 | ali_funasr |
+| `max_speakers` | integer | `2` | 最大说话人数（仅 speaker_diarization=true 有效） | ali_funasr |
+
+> 不支持的引擎会静默忽略该参数，不报错。
 
 **支持的音频格式**：mp3、wav、flac、ogg、m4a、aac、webm、mp4、mkv、avi
 
@@ -168,11 +186,17 @@ curl -X POST http://localhost:8000/api/stt/audio/transcriptions \
   -F "model=Qwen3-ASR-0.6B" \
   -F "language=ja"
 
-# 传入引擎参数（JSON）
+# 传入标准参数（跨引擎通用）
 curl -X POST http://localhost:8000/api/stt/audio/transcriptions \
   -F "file=@audio.mp3" \
   -F "engine=ali_funasr" \
-  -F 'options={"use_itn": true, "max_speakers": 2}'
+  -F 'params={"itn": true, "speaker_diarization": true, "max_speakers": 2}'
+
+# 传入直通参数（引擎特定，高级用法）
+curl -X POST http://localhost:8000/api/stt/audio/transcriptions \
+  -F "file=@audio.mp3" \
+  -F "engine=ali_funasr" \
+  -F 'engine_options={"use_itn": false, "batch_size": 8}'
 ```
 
 **响应：**
@@ -278,7 +302,7 @@ curl http://localhost:8000/api/stt/health
 
 | HTTP 状态码 | 含义 |
 |-------------|------|
-| `400` | 请求参数错误（如 options 非法 JSON） |
+| `400` | 请求参数错误（如 params 或 engine_options 非法 JSON） |
 | `404` | 引擎或模型不存在 |
 | `500` | 服务器错误（如 FFmpeg 未安装） |
 | `503` | 引擎不可用（依赖未安装、API Key 缺失等） |
